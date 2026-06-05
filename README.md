@@ -2,6 +2,8 @@
 
 Quizloom is a bilingual Greek/English quiz library for students who already have multiple-choice questions in plain text. Paste a quiz, organize it by course and topic, merge related quizzes, mark material as reviewed, and practice with shuffled answer choices.
 
+Live site: https://gerasimosiord.github.io/quizloom/
+
 ## Features
 
 - Exact text import format from the original prototype
@@ -51,3 +53,7 @@ Then open the local URL printed by Vite.
 ```bash
 npm run build
 ```
+
+## Deploy
+
+GitHub Pages is configured through `.github/workflows/deploy.yml`. Every push to `main` runs `npm run build:pages` and publishes the `dist` folder to Pages.

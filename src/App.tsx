@@ -998,6 +998,7 @@ function ImportView({
   const [titleTouched, setTitleTouched] = useState(false);
   const [course, setCourse] = useState("");
   const [topic, setTopic] = useState("");
+  const skillDownloadHref = `${import.meta.env.BASE_URL}skills.md`;
 
   const parsed = useMemo(() => parseQuiz(draft), [draft]);
   const valid = parsed.questions.length > 0 && Boolean(title.trim() || parsed.title);
@@ -1031,7 +1032,7 @@ function ImportView({
           <strong>{copy.downloadSkillTitle}</strong>
           <p>{copy.downloadSkillHint}</p>
         </div>
-        <a className="button button-ghost" href="/skills.md" download="skills.md">
+        <a className="button button-ghost" href={skillDownloadHref} download="skills.md">
           <Download size={16} aria-hidden="true" />
           {copy.downloadSkill}
         </a>
