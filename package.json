@@ -1,0 +1,24 @@
+{
+  "name": "quizloom",
+  "version": "0.1.0",
+  "private": false,
+  "description": "A warm, bilingual quiz library for importing, organizing, merging, and practicing text-based quizzes.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.4.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.30",
+    "@types/react-dom": "^18.3.7"
+  }
+}
