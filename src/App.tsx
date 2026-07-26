@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   ArrowLeft,
   BookOpen,
   Check,
+  CheckCircle2,
   ChevronDown,
   Download,
   Edit3,
+  FileText,
   Languages,
-  LibraryBig,
+  Layers,
   ListChecks,
   Merge,
   Play,
@@ -37,6 +40,26 @@ type DoneFilter = "all" | "todo" | "done";
 const LIB_KEY = "quizmgr:library:v2";
 const LANG_KEY = "quizmgr:language:v1";
 
+/** Muted inks that all sit comfortably on the paper background. */
+const COURSE_TINTS = [
+  "#b25f3f",
+  "#5b7350",
+  "#4a5c86",
+  "#9c7430",
+  "#84546b",
+  "#3d7370",
+];
+
+/** Stable colour per course name, so a course keeps its tint across sessions. */
+function courseTint(course: string) {
+  if (course === NONE) return "#8a7f6b";
+  let hash = 0;
+  for (let i = 0; i < course.length; i += 1) {
+    hash = (hash * 31 + course.charCodeAt(i)) >>> 0;
+  }
+  return COURSE_TINTS[hash % COURSE_TINTS.length];
+}
+
 const COPY = {
   el: {
     langLabel: "Γλώσσα",
@@ -50,6 +73,7 @@ const COPY = {
     questionSingular: "ερώτηση",
     questionPlural: "ερωτήσεις",
     reviewed: "ελεγμένα",
+    reviewedOne: "ελεγμένο",
     persistentWarning:
       "η μόνιμη αποθήκευση δεν είναι διαθέσιμη εδώ (μόνο για αυτή τη συνεδρία)",
     importQuiz: "Εισαγωγή quiz",
@@ -61,6 +85,7 @@ const COPY = {
       todo: "Για επανάληψη",
       done: "Ελεγμένα",
     },
+    showing: (n: number, total: number) => `${n} από ${total}`,
     emptyTitle: "Άδεια βιβλιοθήκη",
     emptyBody:
       "Κάνε εισαγωγή του πρώτου σου quiz. Ο τίτλος, οι ερωτήσεις, οι σωστές απαντήσεις και οι εξηγήσεις διαβάζονται από το ίδιο κείμενο.",
@@ -82,6 +107,9 @@ const COPY = {
       `Σίγουρα θέλεις να διαγράψεις ${label}; Η ενέργεια δεν αναιρείται.`,
     delete: "Διαγραφή",
     cancel: "Άκυρο",
+    close: "Κλείσιμο",
+    collapseSection: "Σύμπτυξη",
+    expandSection: "Ανάπτυξη",
     save: "Αποθήκευση",
     saved: "Αποθηκεύτηκε",
     quizSaved: "Το quiz αποθηκεύτηκε",
@@ -159,6 +187,7 @@ const COPY = {
     questionSingular: "question",
     questionPlural: "questions",
     reviewed: "reviewed",
+    reviewedOne: "reviewed",
     persistentWarning:
       "persistent storage is unavailable here (this session only)",
     importQuiz: "Import quiz",
@@ -170,6 +199,7 @@ const COPY = {
       todo: "To review",
       done: "Reviewed",
     },
+    showing: (n: number, total: number) => `${n} of ${total}`,
     emptyTitle: "Empty library",
     emptyBody:
       "Import your first quiz. The title, questions, correct answers, and explanations are read from the same text.",
@@ -191,6 +221,9 @@ const COPY = {
       `Are you sure you want to delete ${label}? This cannot be undone.`,
     delete: "Delete",
     cancel: "Cancel",
+    close: "Close",
+    collapseSection: "Collapse",
+    expandSection: "Expand",
     save: "Save",
     saved: "Saved",
     quizSaved: "Quiz saved",
@@ -403,7 +436,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <LanguageToggle lang={lang} copy={copy} onChange={setLang} />
+      <TopBar lang={lang} copy={copy} onChangeLang={setLang} />
 
       {view === "play" && playing ? (
         <Player
@@ -452,29 +485,62 @@ export default function App() {
         />
       )}
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && (
+        <div className="toast" role="status">
+          <CheckCircle2 size={16} aria-hidden="true" />
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
 
-function LanguageToggle({
+function TopBar({
   lang,
   copy,
-  onChange,
+  onChangeLang,
 }: {
   lang: Lang;
   copy: CopyText;
-  onChange: (lang: Lang) => void;
+  onChangeLang: (lang: Lang) => void;
 }) {
   return (
-    <div className="language-switch" aria-label={copy.langLabel}>
-      <Languages size={15} aria-hidden="true" />
-      <button className={lang === "el" ? "active" : ""} onClick={() => onChange("el")}>
-        EL
-      </button>
-      <button className={lang === "en" ? "active" : ""} onClick={() => onChange("en")}>
-        EN
-      </button>
+    <div className="topbar">
+      <span className="brand">
+        <svg className="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <rect width="24" height="24" rx="7" fill="currentColor" />
+          <g
+            stroke="var(--paper)"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            fill="none"
+          >
+            <path d="M8.5 5v14M15.5 5v14" opacity="0.5" />
+            <path d="M5 9.5h14M5 14.5h14" />
+          </g>
+        </svg>
+        <span>
+          Quiz<em>loom</em>
+        </span>
+      </span>
+
+      <div className="language-switch" role="group" aria-label={copy.langLabel}>
+        <Languages size={14} aria-hidden="true" />
+        <button
+          className={lang === "el" ? "active" : ""}
+          aria-pressed={lang === "el"}
+          onClick={() => onChangeLang("el")}
+        >
+          EL
+        </button>
+        <button
+          className={lang === "en" ? "active" : ""}
+          aria-pressed={lang === "en"}
+          onClick={() => onChangeLang("en")}
+        >
+          EN
+        </button>
+      </div>
     </div>
   );
 }
@@ -546,6 +612,7 @@ function Library({
   const groups = useMemo(() => groupQuizzes(filtered, locale), [filtered, locale]);
   const totalQuestions = quizzes.reduce((n, quiz) => n + quiz.questions.length, 0);
   const doneCount = quizzes.filter((quiz) => quiz.done).length;
+  const donePct = quizzes.length ? Math.round((doneCount / quizzes.length) * 100) : 0;
 
   const toggleSelected = (id: string) =>
     setSelected((prev) =>
@@ -574,21 +641,30 @@ function Library({
           {copy.appKicker}
         </div>
         <h1>{copy.title}</h1>
-        <p className="library-meta">
-          <span>
-            {quizzes.length} {quizzes.length === 1 ? copy.quizSingular : copy.quizPlural}
+
+        <div className="stat-strip">
+          <span className="stat">
+            <b>{quizzes.length}</b>
+            <span>{quizzes.length === 1 ? copy.quizSingular : copy.quizPlural}</span>
           </span>
-          <span>
-            {totalQuestions}{" "}
-            {totalQuestions === 1 ? copy.questionSingular : copy.questionPlural}
+          <span className="stat">
+            <b>{totalQuestions}</b>
+            <span>
+              {totalQuestions === 1 ? copy.questionSingular : copy.questionPlural}
+            </span>
           </span>
           {quizzes.length > 0 && (
-            <span className="reviewed-meta">
-              {doneCount}/{quizzes.length} {copy.reviewed}
+            <span className="stat-meter">
+              <span className="meter-track">
+                <span style={{ width: `${donePct}%` }} />
+              </span>
+              <span className="meter-label">
+                {doneCount}/{quizzes.length} {copy.reviewed}
+              </span>
             </span>
           )}
           {!storageOK && <span className="warning-meta">{copy.persistentWarning}</span>}
-        </p>
+        </div>
       </header>
 
       <div className="toolbar">
@@ -615,16 +691,24 @@ function Library({
       </div>
 
       {quizzes.length > 0 && (
-        <div className="segmented-control" aria-label="Status filter">
-          {(["all", "todo", "done"] as DoneFilter[]).map((key) => (
-            <button
-              key={key}
-              className={filterDone === key ? "active" : ""}
-              onClick={() => setFilterDone(key)}
-            >
-              {copy.filters[key]}
-            </button>
-          ))}
+        <div className="filter-row">
+          <div className="segmented-control" role="group" aria-label={copy.filters.all}>
+            {(["all", "todo", "done"] as DoneFilter[]).map((key) => (
+              <button
+                key={key}
+                className={filterDone === key ? "active" : ""}
+                aria-pressed={filterDone === key}
+                onClick={() => setFilterDone(key)}
+              >
+                {copy.filters[key]}
+              </button>
+            ))}
+          </div>
+          {filtered.length !== quizzes.length && (
+            <span className="result-note">
+              {copy.showing(filtered.length, quizzes.length)}
+            </span>
+          )}
         </div>
       )}
 
@@ -640,7 +724,7 @@ function Library({
         </div>
       ) : (
         <div className="group-stack">
-          {groups.map((group) => {
+          {groups.map((group, groupIndex) => {
             const isCollapsed = collapsed.has(group.course);
             const courseLabel = group.course === NONE ? copy.noCourse : group.course;
             const courseCount = group.topics.reduce((n, topic) => n + topic.items.length, 0);
@@ -650,21 +734,39 @@ function Library({
             );
 
             return (
-              <section className="card course-card rise" key={group.course}>
-                <div className="course-header">
+              <section
+                className={`card folder rise ${isCollapsed ? "is-collapsed" : ""}`}
+                key={group.course}
+                style={
+                  {
+                    "--tint": courseTint(group.course),
+                    "--i": groupIndex,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="folder-head">
                   <button
                     className={`collapse-button ${isCollapsed ? "collapsed" : ""}`}
                     onClick={() => toggleCollapse(group.course)}
-                    aria-label={`${courseLabel} section`}
+                    aria-expanded={!isCollapsed}
+                    aria-label={`${
+                      isCollapsed ? copy.expandSection : copy.collapseSection
+                    }: ${courseLabel}`}
                   >
                     <ChevronDown size={16} aria-hidden="true" />
                   </button>
                   <h2 className={group.course === NONE ? "muted-heading" : ""}>
                     {courseLabel}
                   </h2>
-                  <span className={courseDone === courseCount ? "done-ratio complete" : "done-ratio"}>
+                  <span
+                    className={
+                      courseDone === courseCount
+                        ? "folder-tally complete"
+                        : "folder-tally"
+                    }
+                  >
+                    <Check size={12} aria-hidden="true" />
                     {courseDone}/{courseCount}
-                    <Check size={13} aria-hidden="true" />
                   </span>
                   {group.course !== NONE && !mergeMode && (
                     <IconButton
@@ -682,53 +784,64 @@ function Library({
                   )}
                 </div>
 
-                {!isCollapsed &&
-                  group.topics.map((topic) => {
-                    const topicLabel = topic.topic === NONE ? copy.general : topic.topic;
-                    return (
-                      <div className="topic-block" key={topic.topic}>
-                        <div className="topic-heading">
-                          <span className="mini-dot" />
-                          <span>{topicLabel}</span>
-                          {!mergeMode && (
-                            <IconButton
-                              label={copy.renameTopic}
-                              compact
-                              onClick={() =>
-                                setGroupRename({
-                                  type: "topic",
-                                  course: group.course,
-                                  topic: topic.topic,
-                                  value: topic.topic === NONE ? "" : topic.topic,
-                                })
-                              }
-                            >
-                              <Edit3 size={13} aria-hidden="true" />
-                            </IconButton>
-                          )}
-                        </div>
+                {!isCollapsed && (
+                  <div className="folder-body">
+                    {group.topics.map((topic) => {
+                      const topicLabel =
+                        topic.topic === NONE ? copy.general : topic.topic;
+                      return (
+                        <div className="shelf" key={topic.topic}>
+                          <div className="shelf-label">
+                            <span />
+                            <span>{topicLabel}</span>
+                            {!mergeMode && (
+                              <IconButton
+                                label={copy.renameTopic}
+                                compact
+                                onClick={() =>
+                                  setGroupRename({
+                                    type: "topic",
+                                    course: group.course,
+                                    topic: topic.topic,
+                                    value: topic.topic === NONE ? "" : topic.topic,
+                                  })
+                                }
+                              >
+                                <Edit3 size={12} aria-hidden="true" />
+                              </IconButton>
+                            )}
+                          </div>
 
-                        <div className="quiz-list">
-                          {topic.items.map((quiz) => (
-                            <QuizRow
-                              key={quiz.id}
-                              quiz={quiz}
-                              copy={copy}
-                              mergeMode={mergeMode}
-                              selected={selected.includes(quiz.id)}
-                              onToggle={() => toggleSelected(quiz.id)}
-                              onPlay={() => onPlay(quiz)}
-                              onEdit={() => setEditing(quiz)}
-                              onDelete={() =>
-                                setConfirmDel({ ids: [quiz.id], label: `"${quiz.title}"` })
-                              }
-                              onToggleDone={() => onToggleDone(quiz.id)}
-                            />
-                          ))}
+                          <div
+                            className={`card-grid ${
+                              topic.items.length === 1 ? "is-single" : ""
+                            }`}
+                          >
+                            {topic.items.map((quiz) => (
+                              <QuizCard
+                                key={quiz.id}
+                                quiz={quiz}
+                                copy={copy}
+                                mergeMode={mergeMode}
+                                selected={selected.includes(quiz.id)}
+                                onToggle={() => toggleSelected(quiz.id)}
+                                onPlay={() => onPlay(quiz)}
+                                onEdit={() => setEditing(quiz)}
+                                onDelete={() =>
+                                  setConfirmDel({
+                                    ids: [quiz.id],
+                                    label: `"${quiz.title}"`,
+                                  })
+                                }
+                                onToggleDone={() => onToggleDone(quiz.id)}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             );
           })}
@@ -771,7 +884,7 @@ function Library({
       )}
 
       {confirmDel && (
-        <Modal title={copy.deleteQuiz} onClose={() => setConfirmDel(null)}>
+        <Modal title={copy.deleteQuiz} copy={copy} onClose={() => setConfirmDel(null)}>
           <p className="modal-copy">{copy.deletePrompt(confirmDel.label)}</p>
           <div className="modal-actions">
             <button className="button button-ghost" onClick={() => setConfirmDel(null)}>
@@ -819,6 +932,7 @@ function Library({
       {groupRename && (
         <Modal
           title={groupRename.type === "course" ? copy.renameCourse : copy.renameTopic}
+          copy={copy}
           onClose={() => setGroupRename(null)}
         >
           <Field
@@ -866,7 +980,7 @@ function Library({
   );
 }
 
-function QuizRow({
+function QuizCard({
   quiz,
   copy,
   mergeMode,
@@ -889,64 +1003,78 @@ function QuizRow({
 }) {
   const done = Boolean(quiz.done);
   const questionCount = quiz.questions.length;
-  const handleRowClick = mergeMode ? onToggle : onPlay;
+  const handleCardClick = mergeMode ? onToggle : onPlay;
 
   return (
-    <div
-      className={`quiz-row ${selected ? "selected" : ""} ${done && !mergeMode ? "done" : ""}`}
+    <article
+      className={`quiz-card ${selected ? "is-selected" : ""} ${
+        done && !mergeMode ? "is-done" : ""
+      }`}
       role="button"
       tabIndex={0}
-      onClick={handleRowClick}
+      onClick={handleCardClick}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          handleRowClick();
+          handleCardClick();
         }
       }}
     >
-      {mergeMode ? (
-        <span className={`check-box ${selected ? "checked" : ""}`}>
-          {selected && <Check size={14} aria-hidden="true" />}
-        </span>
-      ) : (
-        <button
-          className={`done-button ${done ? "checked" : ""}`}
-          title={done ? copy.markTodo : copy.markDone}
-          aria-label={done ? copy.markTodo : copy.markDone}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleDone();
-          }}
-        >
-          {done && <Check size={14} aria-hidden="true" />}
-        </button>
-      )}
-
-      <div className="quiz-row-main">
-        <div className="quiz-title">{quiz.title}</div>
-        <div className="quiz-subtitle">
-          <span>
-            {questionCount}{" "}
-            {questionCount === 1 ? copy.questionSingular : copy.questionPlural}
+      <div className="quiz-card-body">
+        {mergeMode ? (
+          <span className={`check-box ${selected ? "checked" : ""}`}>
+            {selected && <Check size={14} aria-hidden="true" />}
           </span>
-          {done && !mergeMode && <span className="done-label">{copy.reviewed}</span>}
+        ) : (
+          <button
+            className={`stamp ${done ? "checked" : ""}`}
+            title={done ? copy.markTodo : copy.markDone}
+            aria-label={done ? copy.markTodo : copy.markDone}
+            aria-pressed={done}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleDone();
+            }}
+          >
+            {done && <Check size={15} aria-hidden="true" />}
+          </button>
+        )}
+
+        <div className="quiz-card-text">
+          <h3 className="quiz-card-title">{quiz.title}</h3>
+          <div className="quiz-card-meta">
+            <span>
+              <FileText size={13} aria-hidden="true" />
+              {questionCount}{" "}
+              {questionCount === 1 ? copy.questionSingular : copy.questionPlural}
+            </span>
+            {done && !mergeMode && (
+              <span className="done-chip">
+                <Check size={12} aria-hidden="true" />
+                {copy.reviewedOne}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {!mergeMode && (
-        <div className="row-actions" onClick={(event) => event.stopPropagation()}>
-          <IconButton label={copy.play} onClick={onPlay}>
-            <Play size={15} aria-hidden="true" />
-          </IconButton>
-          <IconButton label={copy.edit} onClick={onEdit}>
-            <Edit3 size={15} aria-hidden="true" />
-          </IconButton>
-          <IconButton label={copy.delete} danger onClick={onDelete}>
-            <Trash2 size={15} aria-hidden="true" />
-          </IconButton>
+        <div className="quiz-card-foot">
+          <span className="play-pill">
+            <Play size={13} aria-hidden="true" />
+            {copy.play}
+          </span>
+          <div className="row-actions" onClick={(event) => event.stopPropagation()}>
+            <IconButton label={copy.edit} onClick={onEdit}>
+              <Edit3 size={15} aria-hidden="true" />
+            </IconButton>
+            <IconButton label={copy.delete} danger onClick={onDelete}>
+              <Trash2 size={15} aria-hidden="true" />
+            </IconButton>
+          </div>
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -961,8 +1089,12 @@ function EmptyState({
 }) {
   return (
     <section className="card empty-state rise">
-      <div className="empty-icon">
-        <LibraryBig size={24} aria-hidden="true" />
+      <div className="empty-stack" aria-hidden="true">
+        <span />
+        <span />
+        <span>
+          <Layers size={22} />
+        </span>
       </div>
       <h2>{copy.emptyTitle}</h2>
       <p>{copy.emptyBody}</p>
@@ -1008,9 +1140,9 @@ function ImportView({
   }, [parsed.title, titleTouched]);
 
   return (
-    <main className="page">
+    <main className="page player-page">
       <button className="button button-ghost top-return" onClick={onCancel}>
-        <ArrowLeft size={17} aria-hidden="true" />
+        <ArrowLeft size={16} aria-hidden="true" />
         {copy.back}
       </button>
 
@@ -1023,11 +1155,11 @@ function ImportView({
         <p>{copy.importSubtitle}</p>
       </header>
 
-      <div className="skill-download-card">
-        <div className="skill-download-icon">
+      <div className="skill-card">
+        <div className="skill-icon">
           <ListChecks size={22} aria-hidden="true" />
         </div>
-        <div className="skill-download-copy">
+        <div className="skill-copy">
           <span>{copy.skillFile}</span>
           <strong>{copy.downloadSkillTitle}</strong>
           <p>{copy.downloadSkillHint}</p>
@@ -1050,6 +1182,11 @@ function ImportView({
 
       {draft.trim() && (
         <div className={`parse-status ${parsed.questions.length ? "valid" : "invalid"}`}>
+          {parsed.questions.length ? (
+            <CheckCircle2 size={16} aria-hidden="true" />
+          ) : (
+            <AlertCircle size={16} aria-hidden="true" />
+          )}
           {parsed.questions.length
             ? copy.importStatusFound(parsed.questions.length)
             : copy.importStatusMissing}
@@ -1145,7 +1282,7 @@ function EditModal({
   const [topic, setTopic] = useState(quiz.topic || "");
 
   return (
-    <Modal title={copy.editQuiz} onClose={onClose}>
+    <Modal title={copy.editQuiz} copy={copy} onClose={onClose}>
       <Field label={copy.titleLabel}>
         <input
           className="input"
@@ -1234,11 +1371,11 @@ function MergeModal({
   const totalQuestions = sources.reduce((n, source) => n + source.questions.length, 0);
 
   return (
-    <Modal title={copy.mergeTitle} onClose={onClose}>
+    <Modal title={copy.mergeTitle} copy={copy} onClose={onClose}>
       <div className="merge-summary">
         <div className="merge-summary-meta">
           {sources.length} {sources.length === 1 ? copy.quizSingular : copy.quizPlural}
-          <span />
+          <i />
           {totalQuestions}{" "}
           {totalQuestions === 1 ? copy.questionSingular : copy.questionPlural}
         </div>
@@ -1392,7 +1529,7 @@ function Player({
     return (
       <main className="page player-page rise">
         <button className="button button-ghost top-return" onClick={onExit}>
-          <ArrowLeft size={17} aria-hidden="true" />
+          <ArrowLeft size={16} aria-hidden="true" />
           {copy.library}
         </button>
         <div className="eyebrow">
@@ -1400,14 +1537,15 @@ function Player({
           {copy.reviewReady}
         </div>
         <h1>{quiz.title}</h1>
-        <p className="player-meta">
-          <span>
+        <div className="player-meta">
+          <span className="chip">
+            <FileText size={13} aria-hidden="true" />
             {questionCount}{" "}
             {questionCount === 1 ? copy.questionSingular : copy.questionPlural}
           </span>
-          {quiz.course && <span>{quiz.course}</span>}
-          {quiz.topic && <span>{quiz.topic}</span>}
-        </p>
+          {quiz.course && <span className="chip">{quiz.course}</span>}
+          {quiz.topic && <span className="chip">{quiz.topic}</span>}
+        </div>
 
         <div className="callout">
           <Shuffle size={19} aria-hidden="true" />
@@ -1423,31 +1561,49 @@ function Player({
   }
 
   if (done) {
+    const ringColor =
+      pct >= 70 ? "var(--correct)" : pct >= 40 ? "var(--accent)" : "var(--wrong)";
+
     return (
       <main className="page player-page rise">
         <button className="button button-ghost top-return" onClick={onExit}>
-          <ArrowLeft size={17} aria-hidden="true" />
+          <ArrowLeft size={16} aria-hidden="true" />
           {copy.library}
         </button>
         <div className="eyebrow">
           <span className="status-dot success" />
           {copy.result}
         </div>
+
         <div className="score-block">
-          <span className="score-percent">{pct}%</span>
-          <span className="score-count">
-            {score} / {total}
-          </span>
+          <div
+            className="score-ring"
+            style={{ "--pct": pct, "--ring": ringColor } as React.CSSProperties}
+          >
+            <span className="score-percent">{pct}%</span>
+          </div>
+          <div className="score-side">
+            <strong className="score-count">
+              {score} / {total}
+            </strong>
+            <p className="result-copy">{copy.scoreMessage(pct)}</p>
+          </div>
         </div>
-        <p className="result-copy">{copy.scoreMessage(pct)}</p>
 
         <div className="result-list">
           {questions.map((item, i) => {
             const ok = picks[i] === item.correct;
             return (
-              <div className="result-row" key={`${item.question}-${i}`}>
+              <div
+                className={`result-row ${ok ? "" : "is-no"}`}
+                key={`${item.question}-${i}`}
+              >
                 <span className={ok ? "result-mark ok" : "result-mark no"}>
-                  {ok ? <Check size={14} aria-hidden="true" /> : <X size={14} aria-hidden="true" />}
+                  {ok ? (
+                    <Check size={14} aria-hidden="true" />
+                  ) : (
+                    <X size={14} aria-hidden="true" />
+                  )}
                 </span>
                 <span>{item.question}</span>
               </div>
@@ -1473,21 +1629,39 @@ function Player({
   return (
     <main className="page player-page">
       <button className="button button-ghost top-return" onClick={onExit}>
-        <ArrowLeft size={17} aria-hidden="true" />
+        <ArrowLeft size={16} aria-hidden="true" />
         {copy.library}
       </button>
 
       <div className="progress-block">
         <div className="progress-meta">
-          <span>
-            {String(idx + 1).padStart(2, "0")}{" "}
-            <span>/ {String(total).padStart(2, "0")}</span>
+          <span className="progress-count">
+            {String(idx + 1).padStart(2, "0")}
+            <span> / {String(total).padStart(2, "0")}</span>
           </span>
           <strong>{quiz.title}</strong>
         </div>
-        <div className="progress-track">
-          <span style={{ width: `${(answeredCount / total) * 100}%` }} />
-        </div>
+
+        {total <= 40 ? (
+          <div className="tick-track" aria-hidden="true">
+            {questions.map((item, i) => {
+              const pick = picks[i];
+              const state =
+                i === idx
+                  ? "is-current"
+                  : pick === null || pick === undefined
+                    ? ""
+                    : pick === item.correct
+                      ? "is-ok"
+                      : "is-no";
+              return <span className={state} key={`tick-${i}`} />;
+            })}
+          </div>
+        ) : (
+          <div className="progress-track" aria-hidden="true">
+            <span style={{ width: `${(answeredCount / total) * 100}%` }} />
+          </div>
+        )}
       </div>
 
       <section className="question-stage rise" key={anim}>
@@ -1510,12 +1684,21 @@ function Player({
             return (
               <button
                 key={option.key}
-                className={`option-button ${state}`}
+                className={`choice ${state}`}
                 onClick={() => choose(option.key)}
                 disabled={answered}
               >
-                <span>{option.key}</span>
-                <strong>{option.text}</strong>
+                <span className="choice-key">{option.key}</span>
+                <span className="choice-text">{option.text}</span>
+                {answered && (isCorrect || isPicked) && (
+                  <span className="choice-mark">
+                    {isCorrect ? (
+                      <Check size={18} aria-hidden="true" />
+                    ) : (
+                      <X size={18} aria-hidden="true" />
+                    )}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -1523,7 +1706,14 @@ function Player({
 
         {picked && (
           <div className={`explanation rise ${picked === question.correct ? "ok" : "no"}`}>
-            <strong>{picked === question.correct ? copy.correct : copy.wrong}</strong>
+            <strong>
+              {picked === question.correct ? (
+                <Check size={13} aria-hidden="true" />
+              ) : (
+                <X size={13} aria-hidden="true" />
+              )}
+              {picked === question.correct ? copy.correct : copy.wrong}
+            </strong>
             <p>{question.explanation}</p>
           </div>
         )}
@@ -1561,10 +1751,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Modal({
   title,
+  copy,
   children,
   onClose,
 }: {
   title: string;
+  copy: CopyText;
   children: React.ReactNode;
   onClose: () => void;
 }) {
@@ -1578,8 +1770,19 @@ function Modal({
 
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <section className="modal-sheet" onMouseDown={(event) => event.stopPropagation()}>
-        <h2>{title}</h2>
+      <section
+        className="modal-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <IconButton label={copy.close} onClick={onClose}>
+            <X size={17} aria-hidden="true" />
+          </IconButton>
+        </div>
         {children}
       </section>
     </div>
