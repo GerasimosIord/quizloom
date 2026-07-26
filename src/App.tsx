@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   AlertCircle,
   ArrowLeft,
@@ -40,24 +41,50 @@ type DoneFilter = "all" | "todo" | "done";
 const LIB_KEY = "quizmgr:library:v2";
 const LANG_KEY = "quizmgr:language:v1";
 
-/** Muted inks that all sit comfortably on the paper background. */
-const COURSE_TINTS = [
-  "#b25f3f",
-  "#5b7350",
-  "#4a5c86",
-  "#9c7430",
-  "#84546b",
-  "#3d7370",
-];
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+}
 
-/** Stable colour per course name, so a course keeps its tint across sessions. */
-function courseTint(course: string) {
-  if (course === NONE) return "#8a7f6b";
-  let hash = 0;
-  for (let i = 0; i < course.length; i += 1) {
-    hash = (hash * 31 + course.charCodeAt(i)) >>> 0;
+/**
+ * Cross-fades the whole page when swapping views. Falls back to a plain state
+ * update where the View Transition API is unavailable or motion is reduced.
+ */
+function withViewTransition(update: () => void) {
+  const doc = document as Document & {
+    startViewTransition?: (callback: () => void) => unknown;
+  };
+
+  if (typeof doc.startViewTransition !== "function" || prefersReducedMotion()) {
+    update();
+    return;
   }
-  return COURSE_TINTS[hash % COURSE_TINTS.length];
+
+  doc.startViewTransition(() => flushSync(update));
+}
+
+/** Counts a number up on mount, for the result ring. */
+function useCountUp(target: number, duration = 900) {
+  const [value, setValue] = useState(() => (prefersReducedMotion() ? target : 0));
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      setValue(target);
+      return;
+    }
+
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      setValue(Math.round(target * (1 - (1 - progress) ** 3)));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [duration, target]);
+
+  return value;
 }
 
 const COPY = {
@@ -103,6 +130,12 @@ const COPY = {
     next: "Συνέχεια",
     editQuiz: "Επεξεργασία quiz",
     deleteQuiz: "Διαγραφή quiz",
+    deleteCourse: "Διαγραφή μαθήματος",
+    deleteCoursePrompt: (label: string, n: number) =>
+      `Να διαγραφεί το μάθημα ${label} μαζί με ${n} ${
+        n === 1 ? "quiz" : "quiz"
+      }; Η ενέργεια δεν αναιρείται.`,
+    courseDeleted: "Το μάθημα διαγράφηκε",
     deletePrompt: (label: string) =>
       `Σίγουρα θέλεις να διαγράψεις ${label}; Η ενέργεια δεν αναιρείται.`,
     delete: "Διαγραφή",
@@ -217,6 +250,12 @@ const COPY = {
     next: "Continue",
     editQuiz: "Edit quiz",
     deleteQuiz: "Delete quiz",
+    deleteCourse: "Delete course",
+    deleteCoursePrompt: (label: string, n: number) =>
+      `Delete the course ${label} along with its ${n} ${
+        n === 1 ? "quiz" : "quizzes"
+      }? This cannot be undone.`,
+    courseDeleted: "Course deleted",
     deletePrompt: (label: string) =>
       `Are you sure you want to delete ${label}? This cannot be undone.`,
     delete: "Delete",
@@ -298,7 +337,8 @@ export default function App() {
   const [view, setView] = useState<View>("library");
   const [playing, setPlaying] = useState<Quiz | null>(null);
   const [lang, setLang] = useState<Lang>("en");
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; key: number } | null>(null);
+  const [toastLeaving, setToastLeaving] = useState(false);
   const copy = COPY[lang];
   const locale = lang === "el" ? "el" : "en";
 
@@ -328,7 +368,7 @@ export default function App() {
   }, [lang]);
 
   const flash = useCallback((message: string) => {
-    setToast(message);
+    setToast({ text: message, key: Date.now() });
   }, []);
 
   const persist = useCallback(
@@ -354,8 +394,13 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 2200);
-    return () => window.clearTimeout(timer);
+    setToastLeaving(false);
+    const leave = window.setTimeout(() => setToastLeaving(true), 2100);
+    const clear = window.setTimeout(() => setToast(null), 2400);
+    return () => {
+      window.clearTimeout(leave);
+      window.clearTimeout(clear);
+    };
   }, [toast]);
 
   const allCourses = useMemo(
@@ -443,21 +488,25 @@ export default function App() {
           key={playing.id}
           quiz={playing}
           copy={copy}
-          onExit={() => {
-            setPlaying(null);
-            setView("library");
-          }}
+          onExit={() =>
+            withViewTransition(() => {
+              setPlaying(null);
+              setView("library");
+            })
+          }
         />
       ) : view === "import" ? (
         <ImportView
           copy={copy}
           allCourses={allCourses}
           allTopics={allTopics}
-          onCancel={() => setView("library")}
-          onSave={(quiz) => {
-            addQuiz(quiz, copy.quizSaved);
-            setView("library");
-          }}
+          onCancel={() => withViewTransition(() => setView("library"))}
+          onSave={(quiz) =>
+            withViewTransition(() => {
+              addQuiz(quiz, copy.quizSaved);
+              setView("library");
+            })
+          }
         />
       ) : (
         <Library
@@ -467,12 +516,14 @@ export default function App() {
           copy={copy}
           locale={locale}
           storageOK={storageOK}
-          onImport={() => setView("import")}
+          onImport={() => withViewTransition(() => setView("import"))}
           onLoadSample={loadSample}
-          onPlay={(quiz) => {
-            setPlaying(quiz);
-            setView("play");
-          }}
+          onPlay={(quiz) =>
+            withViewTransition(() => {
+              setPlaying(quiz);
+              setView("play");
+            })
+          }
           onUpdate={updateQuiz}
           onDelete={deleteQuizzes}
           onMerge={(quiz, deletedIds) => {
@@ -486,9 +537,13 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="toast" role="status">
+        <div
+          className={`toast ${toastLeaving ? "is-leaving" : ""}`}
+          role="status"
+          key={toast.key}
+        >
           <CheckCircle2 size={16} aria-hidden="true" />
-          {toast}
+          {toast.text}
         </div>
       )}
     </div>
@@ -584,9 +639,11 @@ function Library({
   const [mergeMode, setMergeMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [editing, setEditing] = useState<Quiz | null>(null);
-  const [confirmDel, setConfirmDel] = useState<{ ids: string[]; label: string } | null>(
-    null,
-  );
+  const [confirmDel, setConfirmDel] = useState<{
+    ids: string[];
+    label: string;
+    isCourse?: boolean;
+  } | null>(null);
   const [mergeCfg, setMergeCfg] = useState(false);
   const [groupRename, setGroupRename] = useState<{
     type: "course" | "topic";
@@ -698,7 +755,7 @@ function Library({
                 key={key}
                 className={filterDone === key ? "active" : ""}
                 aria-pressed={filterDone === key}
-                onClick={() => setFilterDone(key)}
+                onClick={() => withViewTransition(() => setFilterDone(key))}
               >
                 {copy.filters[key]}
               </button>
@@ -735,14 +792,11 @@ function Library({
 
             return (
               <section
-                className={`card folder rise ${isCollapsed ? "is-collapsed" : ""}`}
+                className={`card folder rise ${groupIndex % 2 ? "tint-b" : "tint-a"} ${
+                  isCollapsed ? "is-collapsed" : ""
+                }`}
                 key={group.course}
-                style={
-                  {
-                    "--tint": courseTint(group.course),
-                    "--i": groupIndex,
-                  } as React.CSSProperties
-                }
+                style={{ "--i": groupIndex } as React.CSSProperties}
               >
                 <div className="folder-head">
                   <button
@@ -770,7 +824,7 @@ function Library({
                   </span>
                   {group.course !== NONE && !mergeMode && (
                     <IconButton
-                      label={copy.renameCourse}
+                      label={`${copy.renameCourse}: ${courseLabel}`}
                       onClick={() =>
                         setGroupRename({
                           type: "course",
@@ -784,7 +838,12 @@ function Library({
                   )}
                 </div>
 
-                {!isCollapsed && (
+                {/* Always rendered so the open/close can animate; `inert`
+                    keeps the collapsed content out of the tab order. */}
+                <div
+                  className="folder-collapse"
+                  {...(isCollapsed ? { inert: "" } : {})}
+                >
                   <div className="folder-body">
                     {group.topics.map((topic) => {
                       const topicLabel =
@@ -796,7 +855,7 @@ function Library({
                             <span>{topicLabel}</span>
                             {!mergeMode && (
                               <IconButton
-                                label={copy.renameTopic}
+                                label={`${copy.renameTopic}: ${topicLabel}`}
                                 compact
                                 onClick={() =>
                                   setGroupRename({
@@ -817,9 +876,10 @@ function Library({
                               topic.items.length === 1 ? "is-single" : ""
                             }`}
                           >
-                            {topic.items.map((quiz) => (
+                            {topic.items.map((quiz, cardIndex) => (
                               <QuizCard
                                 key={quiz.id}
+                                index={cardIndex}
                                 quiz={quiz}
                                 copy={copy}
                                 mergeMode={mergeMode}
@@ -841,7 +901,7 @@ function Library({
                       );
                     })}
                   </div>
-                )}
+                </div>
               </section>
             );
           })}
@@ -884,8 +944,16 @@ function Library({
       )}
 
       {confirmDel && (
-        <Modal title={copy.deleteQuiz} copy={copy} onClose={() => setConfirmDel(null)}>
-          <p className="modal-copy">{copy.deletePrompt(confirmDel.label)}</p>
+        <Modal
+          title={confirmDel.isCourse ? copy.deleteCourse : copy.deleteQuiz}
+          copy={copy}
+          onClose={() => setConfirmDel(null)}
+        >
+          <p className="modal-copy">
+            {confirmDel.isCourse
+              ? copy.deleteCoursePrompt(confirmDel.label, confirmDel.ids.length)
+              : copy.deletePrompt(confirmDel.label)}
+          </p>
           <div className="modal-actions">
             <button className="button button-ghost" onClick={() => setConfirmDel(null)}>
               {copy.cancel}
@@ -893,7 +961,10 @@ function Library({
             <button
               className="button button-danger"
               onClick={() => {
-                onDelete(confirmDel.ids, copy.deleted);
+                onDelete(
+                  confirmDel.ids,
+                  confirmDel.isCourse ? copy.courseDeleted : copy.deleted,
+                );
                 setConfirmDel(null);
               }}
             >
@@ -954,7 +1025,28 @@ function Library({
               }
             />
           </Field>
-          <div className="modal-actions">
+          <div className="modal-actions modal-actions-split">
+            {groupRename.type === "course" && (
+              <button
+                className="button button-danger-ghost"
+                onClick={() => {
+                  const ids = quizzes
+                    .filter(
+                      (quiz) => (quiz.course || "").trim() === groupRename.course,
+                    )
+                    .map((quiz) => quiz.id);
+                  setGroupRename(null);
+                  setConfirmDel({
+                    ids,
+                    label: `"${groupRename.course}"`,
+                    isCourse: true,
+                  });
+                }}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                {copy.deleteCourse}
+              </button>
+            )}
             <button className="button button-ghost" onClick={() => setGroupRename(null)}>
               {copy.cancel}
             </button>
@@ -982,6 +1074,7 @@ function Library({
 
 function QuizCard({
   quiz,
+  index,
   copy,
   mergeMode,
   selected,
@@ -992,6 +1085,7 @@ function QuizCard({
   onToggleDone,
 }: {
   quiz: Quiz;
+  index: number;
   copy: CopyText;
   mergeMode: boolean;
   selected: boolean;
@@ -1007,9 +1101,10 @@ function QuizCard({
 
   return (
     <article
-      className={`quiz-card ${selected ? "is-selected" : ""} ${
+      className={`quiz-card rise ${selected ? "is-selected" : ""} ${
         done && !mergeMode ? "is-done" : ""
       }`}
+      style={{ "--i": index } as React.CSSProperties}
       role="button"
       tabIndex={0}
       onClick={handleCardClick}
@@ -1065,10 +1160,14 @@ function QuizCard({
             {copy.play}
           </span>
           <div className="row-actions" onClick={(event) => event.stopPropagation()}>
-            <IconButton label={copy.edit} onClick={onEdit}>
+            <IconButton label={`${copy.edit}: ${quiz.title}`} onClick={onEdit}>
               <Edit3 size={15} aria-hidden="true" />
             </IconButton>
-            <IconButton label={copy.delete} danger onClick={onDelete}>
+            <IconButton
+              label={`${copy.delete}: ${quiz.title}`}
+              danger
+              onClick={onDelete}
+            >
               <Trash2 size={15} aria-hidden="true" />
             </IconButton>
           </div>
@@ -1479,6 +1578,7 @@ function Player({
     0,
   );
   const pct = total ? Math.round((score / total) * 100) : 0;
+  const shownPct = useCountUp(done ? pct : 0);
 
   const startShuffled = () => {
     const shuffled = shuffleQuiz(quiz);
@@ -1580,7 +1680,7 @@ function Player({
             className="score-ring"
             style={{ "--pct": pct, "--ring": ringColor } as React.CSSProperties}
           >
-            <span className="score-percent">{pct}%</span>
+            <span className="score-percent">{shownPct}%</span>
           </div>
           <div className="score-side">
             <strong className="score-count">
@@ -1684,7 +1784,7 @@ function Player({
             return (
               <button
                 key={option.key}
-                className={`choice ${state}`}
+                className={`choice ${state} ${isPicked ? "is-picked" : ""}`}
                 onClick={() => choose(option.key)}
                 disabled={answered}
               >
@@ -1760,16 +1860,35 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  const [closing, setClosing] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  /* Play the exit animation before unmounting. */
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    if (prefersReducedMotion()) {
+      onClose();
+      return;
+    }
+    setClosing(true);
+    timer.current = window.setTimeout(onClose, 180);
+  }, [closing, onClose]);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [requestClose]);
 
   return (
-    <div className="overlay" onMouseDown={onClose}>
+    <div
+      className={`overlay ${closing ? "is-closing" : ""}`}
+      onMouseDown={requestClose}
+    >
       <section
         className="modal-sheet"
         role="dialog"
@@ -1779,7 +1898,7 @@ function Modal({
       >
         <div className="modal-head">
           <h2>{title}</h2>
-          <IconButton label={copy.close} onClick={onClose}>
+          <IconButton label={copy.close} onClick={requestClose}>
             <X size={17} aria-hidden="true" />
           </IconButton>
         </div>
