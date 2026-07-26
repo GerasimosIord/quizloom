@@ -35,10 +35,11 @@
   --wrong: #a94f3a;
   --wrong-soft: #f4dfd8;
 
-  /* Folder tint. Two pastels alternate down the library; `--tint` fills,
-     `--tint-ink` is the readable text/edge version of the same hue. */
-  --tint: #a9bda2;
-  --tint-ink: #58704e;
+  /* Folder tint: one warm stone, used by every course. Deliberately low
+     chroma so it never competes with the green "reviewed" state or the
+     terracotta accent. `--tint` fills, `--tint-ink` is text/edges. */
+  --tint: #c2b39c;
+  --tint-ink: #766450;
 
   /* Depth */
   --shadow-sm:
@@ -703,19 +704,8 @@ h3 {
   position: relative;
   padding: 0;
   overflow: hidden;
-  background-color: color-mix(in srgb, var(--tint) 5%, #f5eee0);
+  background-color: color-mix(in srgb, var(--tint) 6%, #f5eee0);
   border-color: color-mix(in srgb, var(--tint-ink) 20%, var(--line));
-}
-
-/* Pale sage / pale clay, alternating down the stack. */
-.folder.tint-a {
-  --tint: #a9bda2;
-  --tint-ink: #58704e;
-}
-
-.folder.tint-b {
-  --tint: #e0b49b;
-  --tint-ink: #a4623f;
 }
 
 /* Coloured spine down the left edge of every folder. */
@@ -1246,6 +1236,132 @@ h3 {
   line-height: 1.6;
 }
 
+/* Suggestion field ---------------------------------------------------------
+   Replaces <datalist>, whose popup is drawn by the OS and ignores the theme. */
+
+.suggest {
+  position: relative;
+}
+
+.suggest-input {
+  padding-right: 40px;
+}
+
+.suggest-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--faint);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  place-items: center;
+  transform: translateY(-50%);
+  transition:
+    color 160ms var(--ease),
+    background 160ms var(--ease);
+}
+
+.suggest-toggle:hover {
+  color: var(--ink-2);
+  background: var(--paper-3);
+}
+
+.suggest-toggle svg {
+  transition: transform 200ms var(--ease);
+}
+
+.suggest-toggle.is-open svg {
+  transform: rotate(180deg);
+}
+
+.suggest-list {
+  position: fixed;
+  z-index: 60;
+  max-height: 202px;
+  padding: 5px;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+  background-color: var(--paper);
+  background-image: var(--grain);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  animation: suggestIn 160ms var(--ease) both;
+}
+
+.suggest-list.is-above {
+  transform: translateY(-100%);
+}
+
+.suggest-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.suggest-list button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggest-list button.is-current {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.suggest-list button.is-current svg {
+  flex: 0 0 auto;
+  color: var(--correct);
+}
+
+.suggest-list button.is-active {
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+
+@keyframes suggestIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.suggest-list.is-above {
+  animation-name: suggestInAbove;
+}
+
+@keyframes suggestInAbove {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-100% + 4px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-100%);
+  }
+}
+
 .mono {
   font-family: var(--font-mono);
   font-size: 0.84rem;
@@ -1445,7 +1561,10 @@ h3 {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
-  animation: pop 300ms var(--ease) both;
+  /* `backwards`, not `both`: a transform left applied after the animation
+     would become the containing block for the fixed-position suggestion
+     list, positioning it against the sheet instead of the viewport. */
+  animation: pop 300ms var(--ease) backwards;
 }
 
 .modal-head {
