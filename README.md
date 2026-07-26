@@ -13,7 +13,7 @@ Live site: https://gerasimosiord.github.io/quizloom/
 - Search, reviewed/todo filters, and collapsible course sections
 - Edit, move, delete, and merge quizzes
 - Practice mode with shuffled answers, explanations, progress, and score summary
-- Warm, minimal paper-like interface
+- Warm paper interface: courses read as tinted manila folders, quizzes as index cards
 - Downloadable `SKILL.md` prompt file for generating compatible quizzes with an LLM
 
 ## Import Format
