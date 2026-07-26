@@ -35,8 +35,10 @@
   --wrong: #a94f3a;
   --wrong-soft: #f4dfd8;
 
-  /* Per-course tint, overridden inline. Neutral by default. */
-  --tint: #8a7f6b;
+  /* Folder tint. Two pastels alternate down the library; `--tint` fills,
+     `--tint-ink` is the readable text/edge version of the same hue. */
+  --tint: #a9bda2;
+  --tint-ink: #58704e;
 
   /* Depth */
   --shadow-sm:
@@ -480,6 +482,18 @@ h3 {
   border: 1px solid var(--wrong);
 }
 
+.button-danger-ghost {
+  color: var(--wrong);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--wrong) 32%, transparent);
+}
+
+.button-danger-ghost:hover:not(:disabled) {
+  color: #fff;
+  background: var(--wrong);
+  border-color: var(--wrong);
+}
+
 .button-dark-ghost {
   color: rgba(255, 255, 255, 0.9);
   background: transparent;
@@ -689,8 +703,19 @@ h3 {
   position: relative;
   padding: 0;
   overflow: hidden;
-  background-color: color-mix(in srgb, var(--tint) 5%, #f4edde);
-  border-color: color-mix(in srgb, var(--tint) 24%, var(--line));
+  background-color: color-mix(in srgb, var(--tint) 5%, #f5eee0);
+  border-color: color-mix(in srgb, var(--tint-ink) 20%, var(--line));
+}
+
+/* Pale sage / pale clay, alternating down the stack. */
+.folder.tint-a {
+  --tint: #a9bda2;
+  --tint-ink: #58704e;
+}
+
+.folder.tint-b {
+  --tint: #e0b49b;
+  --tint-ink: #a4623f;
 }
 
 /* Coloured spine down the left edge of every folder. */
@@ -717,14 +742,42 @@ h3 {
   padding: 14px 18px 14px 24px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--tint) 12%, transparent),
-    color-mix(in srgb, var(--tint) 2%, transparent) 72%
+    color-mix(in srgb, var(--tint) 30%, transparent),
+    color-mix(in srgb, var(--tint) 6%, transparent) 72%
   );
-  border-bottom: 1px solid color-mix(in srgb, var(--tint) 22%, var(--line));
+  border-bottom: 1px solid color-mix(in srgb, var(--tint-ink) 18%, var(--line));
+  transition: border-color 300ms var(--ease);
 }
 
 .folder.is-collapsed .folder-head {
   border-bottom-color: transparent;
+}
+
+/* Open/close without a jump: 1fr -> 0fr collapses the row smoothly. */
+.folder-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 340ms var(--ease),
+    opacity 260ms var(--ease);
+}
+
+.folder.is-collapsed .folder-collapse {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+/* Padding has to collapse too — with border-box the row cannot shrink
+   below the body's own vertical padding, which would leave a gap. */
+.folder-collapse > .folder-body {
+  min-height: 0;
+  overflow: hidden;
+  transition: padding 340ms var(--ease);
+}
+
+.folder.is-collapsed .folder-collapse > .folder-body {
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .folder-head h2 {
@@ -747,9 +800,9 @@ h3 {
   width: 28px;
   height: 28px;
   padding: 0;
-  color: var(--tint);
+  color: var(--tint-ink);
   cursor: pointer;
-  background: color-mix(in srgb, var(--tint) 12%, transparent);
+  background: color-mix(in srgb, var(--tint) 34%, transparent);
   border: 0;
   border-radius: 9px;
   place-items: center;
@@ -759,7 +812,7 @@ h3 {
 }
 
 .collapse-button:hover {
-  background: color-mix(in srgb, var(--tint) 22%, transparent);
+  background: color-mix(in srgb, var(--tint) 60%, transparent);
 }
 
 .collapse-button svg {
@@ -809,7 +862,7 @@ h3 {
   gap: 8px;
   min-height: 26px;
   margin-bottom: 12px;
-  color: var(--tint);
+  color: var(--tint-ink);
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.13em;
@@ -892,7 +945,7 @@ h3 {
 
 .quiz-card:hover,
 .quiz-card:focus-visible {
-  border-color: color-mix(in srgb, var(--tint) 60%, var(--line));
+  border-color: color-mix(in srgb, var(--tint-ink) 45%, var(--line));
   outline: 0;
   box-shadow: var(--shadow-md);
   transform: translateY(-3px);
@@ -1351,6 +1404,15 @@ h3 {
   justify-content: flex-end;
 }
 
+/* Destructive action sits away from the confirm button. */
+.modal-actions-split {
+  flex-wrap: wrap;
+}
+
+.modal-actions-split .button-danger-ghost {
+  margin-right: auto;
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -1362,6 +1424,14 @@ h3 {
   background: rgba(40, 34, 26, 0.36);
   backdrop-filter: blur(5px);
   animation: fade 200ms ease both;
+}
+
+.overlay.is-closing {
+  animation: fadeOut 180ms ease both;
+}
+
+.overlay.is-closing .modal-sheet {
+  animation: popOut 180ms var(--ease) both;
 }
 
 .modal-sheet {
@@ -1648,6 +1718,10 @@ h3 {
   cursor: default;
 }
 
+.choice.is-picked {
+  animation: pickPop 340ms var(--ease);
+}
+
 .choice-key {
   display: grid;
   flex: 0 0 auto;
@@ -1914,6 +1988,10 @@ h3 {
   animation: toastIn 320ms var(--ease) both;
 }
 
+.toast.is-leaving {
+  animation: toastOut 300ms var(--ease) both;
+}
+
 .toast svg {
   color: color-mix(in srgb, var(--correct) 60%, #fff);
 }
@@ -1922,9 +2000,29 @@ h3 {
    Motion
    -------------------------------------------------------------------------- */
 
+/* `backwards`, not `both`: the animation must not keep its final transform
+   applied afterwards, or it would win over hover/active transforms. */
 .rise {
-  animation: rise 480ms var(--ease) both;
+  animation: rise 480ms var(--ease) backwards;
   animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.quiz-card.rise {
+  animation-duration: 420ms;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+/* First-paint reveal for the masthead and its controls. */
+.page-header {
+  animation: rise 480ms var(--ease) backwards;
+}
+
+.toolbar {
+  animation: rise 480ms var(--ease) 70ms backwards;
+}
+
+.filter-row {
+  animation: rise 480ms var(--ease) 120ms backwards;
 }
 
 @keyframes rise {
@@ -2001,6 +2099,65 @@ h3 {
   from {
     --pct: 0;
   }
+}
+
+@keyframes toastOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.96);
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes popOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@keyframes pickPop {
+  40% {
+    transform: scale(1.014);
+  }
+}
+
+/* Whole-page cross-fade when switching library / import / player. */
+@keyframes vtOut {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes vtIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+::view-transition-old(root) {
+  animation: vtOut 190ms var(--ease) both;
+}
+
+::view-transition-new(root) {
+  animation: vtIn 320ms var(--ease) both;
+}
+
+/* The bar is common to every view, so hold it still while the page swaps. */
+.topbar {
+  view-transition-name: topbar;
+}
+
+::view-transition-old(topbar),
+::view-transition-new(topbar) {
+  animation: none;
 }
 
 /* --------------------------------------------------------------------------
@@ -2120,5 +2277,10 @@ h3 {
   .quiz-card:hover,
   .choice:hover:not(:disabled) {
     transform: none;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }
