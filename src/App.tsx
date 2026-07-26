@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { flushSync } from "react-dom";
 import {
   AlertCircle,
@@ -792,9 +799,7 @@ function Library({
 
             return (
               <section
-                className={`card folder rise ${groupIndex % 2 ? "tint-b" : "tint-a"} ${
-                  isCollapsed ? "is-collapsed" : ""
-                }`}
+                className={`card folder rise ${isCollapsed ? "is-collapsed" : ""}`}
                 key={group.course}
                 style={{ "--i": groupIndex } as React.CSSProperties}
               >
@@ -1306,32 +1311,20 @@ function ImportView({
 
       <div className="field-grid">
         <Field label={copy.optionalCourseLabel}>
-          <input
-            className="input"
-            list="courses-import"
+          <SuggestField
             value={course}
-            onChange={(event) => setCourse(event.target.value)}
+            onChange={setCourse}
+            options={allCourses}
             placeholder={copy.coursePlaceholder}
           />
-          <datalist id="courses-import">
-            {allCourses.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </Field>
         <Field label={copy.optionalTopicLabel}>
-          <input
-            className="input"
-            list="topics-import"
+          <SuggestField
             value={topic}
-            onChange={(event) => setTopic(event.target.value)}
+            onChange={setTopic}
+            options={allTopics}
             placeholder={copy.topicPlaceholder}
           />
-          <datalist id="topics-import">
-            {allTopics.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </Field>
       </div>
 
@@ -1392,32 +1385,20 @@ function EditModal({
       </Field>
       <div className="field-grid">
         <Field label={copy.courseLabel}>
-          <input
-            className="input"
-            list="courses-edit"
+          <SuggestField
             value={course}
-            onChange={(event) => setCourse(event.target.value)}
-            placeholder="-"
+            onChange={setCourse}
+            options={allCourses}
+            placeholder={copy.coursePlaceholder}
           />
-          <datalist id="courses-edit">
-            {allCourses.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </Field>
         <Field label={copy.topicLabel}>
-          <input
-            className="input"
-            list="topics-edit"
+          <SuggestField
             value={topic}
-            onChange={(event) => setTopic(event.target.value)}
-            placeholder="-"
+            onChange={setTopic}
+            options={allTopics}
+            placeholder={copy.topicPlaceholder}
           />
-          <datalist id="topics-edit">
-            {allTopics.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </Field>
       </div>
       <p className="soft-note">
@@ -1498,32 +1479,20 @@ function MergeModal({
 
       <div className="field-grid">
         <Field label={copy.courseLabel}>
-          <input
-            className="input"
-            list="courses-merge"
+          <SuggestField
             value={course}
-            onChange={(event) => setCourse(event.target.value)}
-            placeholder="-"
+            onChange={setCourse}
+            options={allCourses}
+            placeholder={copy.coursePlaceholder}
           />
-          <datalist id="courses-merge">
-            {allCourses.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </Field>
         <Field label={copy.topicLabel}>
-          <input
-            className="input"
-            list="topics-merge"
+          <SuggestField
             value={topic}
-            onChange={(event) => setTopic(event.target.value)}
-            placeholder="-"
+            onChange={setTopic}
+            options={allTopics}
+            placeholder={copy.topicPlaceholder}
           />
-          <datalist id="topics-merge">
-            {allTopics.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </Field>
       </div>
 
@@ -1837,6 +1806,185 @@ function Player({
         </div>
       </section>
     </main>
+  );
+}
+
+/**
+ * Text input with a styled suggestion list. Replaces `<datalist>`, whose
+ * popup is drawn by the OS and cannot be themed. Free text is still the
+ * point — the list only offers names already used in the library.
+ */
+function SuggestField({
+  value,
+  onChange,
+  options,
+  placeholder,
+  autoFocus = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder?: string;
+  autoFocus?: boolean;
+}) {
+  const listId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  /* null = browsing every option; a string = filtering by what was typed. */
+  const [query, setQuery] = useState<string | null>(null);
+  const [anchor, setAnchor] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    above: boolean;
+  } | null>(null);
+
+  const matches = useMemo(() => {
+    if (query === null) return options.slice(0, 8);
+    const needle = query.trim().toLowerCase();
+    if (!needle) return options.slice(0, 8);
+    return options
+      .filter((option) => option.toLowerCase().includes(needle))
+      .slice(0, 8);
+  }, [options, query]);
+
+  /* Positioned against the viewport so the list is never clipped by a
+     modal's own scroll container. */
+  const place = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const box = el.getBoundingClientRect();
+    const roomBelow = window.innerHeight - box.bottom;
+    const above = roomBelow < 210 && box.top > roomBelow;
+    setAnchor({
+      top: above ? box.top - 6 : box.bottom + 6,
+      left: box.left,
+      width: box.width,
+      above,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    place();
+    const onMove = () => place();
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open, place]);
+
+  const hasOptions = options.length > 0;
+  const show = open && matches.length > 0;
+
+  const openList = () => {
+    if (!hasOptions) return;
+    setActive(-1);
+    setQuery(null);
+    setOpen(true);
+  };
+
+  const commit = (next: string) => {
+    onChange(next);
+    setOpen(false);
+    setActive(-1);
+    setQuery(null);
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="suggest">
+      <input
+        ref={inputRef}
+        className="input suggest-input"
+        role="combobox"
+        aria-expanded={show}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-activedescendant={show && active >= 0 ? `${listId}-${active}` : undefined}
+        autoComplete="off"
+        autoFocus={autoFocus}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setQuery(event.target.value);
+          setActive(-1);
+          setOpen(hasOptions);
+        }}
+        onFocus={openList}
+        onBlur={() => setOpen(false)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            if (!show) return openList();
+            setActive((i) => Math.min(i + 1, matches.length - 1));
+          } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setActive((i) => Math.max(i - 1, 0));
+          } else if (event.key === "Enter" && show && active >= 0) {
+            event.preventDefault();
+            commit(matches[active]);
+          } else if (event.key === "Escape" || event.key === "Tab") {
+            setOpen(false);
+          }
+        }}
+      />
+
+      {hasOptions && (
+        <button
+          type="button"
+          className={`suggest-toggle ${show ? "is-open" : ""}`}
+          tabIndex={-1}
+          aria-hidden="true"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            if (open) setOpen(false);
+            else {
+              inputRef.current?.focus();
+              openList();
+            }
+          }}
+        >
+          <ChevronDown size={15} />
+        </button>
+      )}
+
+      {show && anchor && (
+        <ul
+          className={`suggest-list ${anchor.above ? "is-above" : ""}`}
+          id={listId}
+          role="listbox"
+          style={{ top: anchor.top, left: anchor.left, width: anchor.width }}
+        >
+          {matches.map((option, i) => {
+            const current = option === value;
+            return (
+              <li key={option}>
+                <button
+                  type="button"
+                  id={`${listId}-${i}`}
+                  role="option"
+                  aria-selected={current}
+                  className={`${i === active ? "is-active" : ""} ${
+                    current ? "is-current" : ""
+                  }`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => commit(option)}
+                >
+                  <span>{option}</span>
+                  {current && <Check size={14} aria-hidden="true" />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
