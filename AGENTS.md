@@ -32,8 +32,8 @@ honest:
   closer-sorting sibling cannot wedge between them, and `updateQuiz` drags the
   deck along when the source is renamed or moved. The generated title only
   follows while it is still the generated one; a hand-renamed deck is left be.
-- **The card marks it with a symbol, not a word** — `.origin-mark`, naming the
-  source in a bubble on hover. The bubble is faded rather than hidden so the
+- **The card marks it with a symbol, not a word** — `.origin-mark`, a bare "!"
+  in a tinted disc, naming the source in a bubble on hover. The bubble is faded rather than hidden so the
   label stays in the accessibility tree, and it opens downward and stays inside
   the card: upward covers the deck's own title, and anything escaping the card
   is clipped by `.folder-collapse`'s overflow.
