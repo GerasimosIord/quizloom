@@ -15,6 +15,10 @@
   --paper: #fdfaf3;
   --paper-2: #f7f1e3;
   --paper-3: #f2eadb;
+  /* Cards cut from another quiz's wrong answers, sunk below the shelf they sit
+     on. Stated per theme rather than mixed toward --folder-paper, which cannot
+     reach far enough: in dark, the folder is only a few points off --paper. */
+  --paper-sunk: #f3ebda;
 
   /* Ink */
   --ink: #221e18;
@@ -105,6 +109,7 @@
   --paper: #322e26;
   --paper-2: #3a352c;
   --paper-3: #423c32;
+  --paper-sunk: #232016;
 
   --ink: #f2ebdd;
   --ink-2: #d2c8b6;
@@ -1031,13 +1036,12 @@ h3 {
   transform: translateY(-3px);
 }
 
-/* A deck cut from another quiz sits a shade deeper than an imported one, as if
-   recessed into the shelf. Mixes toward the folder rather than toward a hue,
-   so it darkens in both themes and cannot collide with the reviewed green —
-   which still wins, being the later rule. */
+/* A deck cut from another quiz sits deeper than an imported one, recessed into
+   the shelf rather than raised off it. Neutral, not a hue, so it cannot
+   collide with the reviewed green — which still wins, being the later rule. */
 .quiz-card.is-missed {
-  background-color: color-mix(in srgb, var(--folder-paper) 55%, var(--paper));
-  border-color: color-mix(in srgb, var(--tint-ink) 20%, var(--line));
+  background-color: var(--paper-sunk);
+  border-color: color-mix(in srgb, var(--tint-ink) 26%, var(--line));
 }
 
 .quiz-card.is-done {
