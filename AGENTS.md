@@ -1,7 +1,8 @@
 # Design Notes
 
-The app is called **Klados** (Greek for "branch"); the mark is a minimal
-branching tree. The repository, the Pages URL, and the localStorage keys are
+The app is called **Klados** (Greek for "branch"); the mark is a single leaf
+with a midrib — a tree silhouette was tried first and does not survive 25px
+(bare branches read as a rune, a solid crown reads as a lollipop). The repository, the Pages URL, and the localStorage keys are
 still `quizloom` — renaming those would break existing users' saved libraries.
 
 - Keep the app as a focused quiz tool on first load; avoid landing-page or marketing layouts.
