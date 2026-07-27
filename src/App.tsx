@@ -1577,7 +1577,9 @@ function QuizCard({
                 from. */}
             {quiz.missedFrom && !mergeMode && (
               <span className="origin-mark">
-                <Target size={12} aria-hidden="true" />
+                <span className="origin-glyph" aria-hidden="true">
+                  !
+                </span>
                 <span className="origin-bubble">
                   {originTitle
                     ? copy.missedOrigin(originTitle)

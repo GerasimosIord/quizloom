@@ -1529,9 +1529,13 @@ h3 {
   cursor: help;
 }
 
-.origin-mark svg {
-  margin-right: 0;
-  color: inherit;
+/* A bare "!" rather than an icon. `line-height: 1` on its own leaves the glyph
+   sitting low, so it is nudged up by its own optical offset. */
+.origin-glyph {
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-0.5px);
 }
 
 /* Faded rather than hidden, so screen readers still reach the label. */
