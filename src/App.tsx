@@ -1071,7 +1071,14 @@ function Library({
       </header>
 
       <div className="toolbar">
-        <button className="button button-primary" onClick={onImport}>
+        {/* Dead until the library holds something: the empty state offers its
+            own import button, and two identical primary actions on one screen
+            read as a mistake. Fades in when the first quiz lands. */}
+        <button
+          className="button button-primary"
+          onClick={onImport}
+          disabled={quizzes.length === 0}
+        >
           <Plus size={18} aria-hidden="true" />
           {copy.importQuiz}
         </button>
