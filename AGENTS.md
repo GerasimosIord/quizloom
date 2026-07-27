@@ -79,3 +79,7 @@ folders (courses), and each folder holds bright index cards (quizzes).
   never shows a half-empty grid.
 - **Motion.** Quiet and short. `.rise` staggers via `--i`. Everything collapses
   under `prefers-reduced-motion`.
+- **Empty library.** The toolbar's import button is disabled while there are no
+  quizzes; the empty state carries the live one. Two identical primary actions
+  on the same screen read as a mistake. It fades back in through `.button`'s
+  existing opacity transition.
