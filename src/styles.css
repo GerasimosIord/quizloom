@@ -251,7 +251,9 @@ button {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 12px max(20px, calc(50% - 490px));
+  /* Must match `.page`'s column exactly (940px wide, 20px min gutter), or
+     the wordmark hangs to the left of everything below it. */
+  padding: 12px max(20px, calc(50% - 470px));
   background: linear-gradient(
     to bottom,
     var(--topbar-a),
@@ -2741,6 +2743,11 @@ h3 {
   .page,
   .player-page {
     width: min(100% - 28px, 760px);
+  }
+
+  .topbar {
+    padding-right: 14px;
+    padding-left: 14px;
   }
 
   .toolbar > .button {
