@@ -93,7 +93,7 @@ export function parseQuiz(raw: string): ParsedQuiz {
   return { title, questions };
 }
 
-export const BACKUP_APP = "quizloom";
+export const BACKUP_APP = "klados";
 export const BACKUP_VERSION = 1;
 
 export function blankQuestion(): QuizQuestion {

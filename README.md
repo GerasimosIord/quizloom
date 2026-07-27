@@ -1,6 +1,6 @@
-# Quizloom
+# Klados
 
-Quizloom is a bilingual Greek/English quiz library for students who already have multiple-choice questions in plain text. Paste a quiz, organize it by course and topic, merge related quizzes, mark material as reviewed, and practice with shuffled answer choices.
+Klados ("branch" in Greek) is a bilingual Greek/English quiz library for students who already have multiple-choice questions in plain text. Paste a quiz, organize it by course and topic, merge related quizzes, mark material as reviewed, and practice with shuffled answer choices.
 
 Live site: https://gerasimosiord.github.io/quizloom/
 
@@ -19,7 +19,7 @@ Live site: https://gerasimosiord.github.io/quizloom/
 - Keyboard shortcuts while practising: `A`–`D` or `1`–`4` to answer, `Enter` to continue
 - Light and dark themes, following your system setting until you pick one
 - JSON backup: export the whole library to a file, restore it by adding or replacing
-- Warm paper interface: courses read as tinted manila folders, quizzes as index cards
+- Warm paper interface, in light and dark: courses read as tinted manila folders, quizzes as index cards
 - Downloadable `SKILL.md` prompt file for generating compatible quizzes with an LLM
 
 ## Import Format
