@@ -751,21 +751,20 @@ function TopBar({
   return (
     <div className="topbar">
       <span className="brand">
-        {/* klados — Greek for "branch". */}
-        <svg
-          className="brand-mark"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <path d="M12 21V6" />
-          <path d="M12 14.5 7.2 9.7" />
-          <path d="M12 14.5 16.8 9.7" />
-          <path d="M12 9.6 8.7 6.3" />
-          <path d="M12 9.6 15.3 6.3" />
+        {/* klados — Greek for "branch". A solid crown reads as a tree at
+            25px; bare branches and small leaves both dissolve at this size.
+            Ink is centred in the viewBox so it aligns with the wordmark. */}
+        <svg className="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <g
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.85"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 3.2C17.4 7.6 17.4 14.4 12 18.8 6.6 14.4 6.6 7.6 12 3.2Z" />
+            <path d="M12 6.2V21" />
+          </g>
         </svg>
         <span>klados</span>
       </span>
