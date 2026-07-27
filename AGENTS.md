@@ -1,5 +1,9 @@
 # Design Notes
 
+The app is called **Klados** (Greek for "branch"); the mark is a minimal
+branching tree. The repository, the Pages URL, and the localStorage keys are
+still `quizloom` — renaming those would break existing users' saved libraries.
+
 - Keep the app as a focused quiz tool on first load; avoid landing-page or marketing layouts.
 - Preserve the warm paper palette, serif headings, rounded controls, and quiet motion from the original TSX.
 - The text import grammar is a product contract. Do not change it without adding backward compatibility.

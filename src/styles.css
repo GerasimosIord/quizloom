@@ -157,14 +157,6 @@
     0 34px 70px -34px rgba(0, 0, 0, 0.85);
 }
 
-:root[data-theme="dark"] .brand-mark {
-  filter: none;
-}
-
-:root[data-theme="dark"] .brand-mark rect {
-  fill: var(--paper-3);
-}
-
 :root[data-theme="dark"] .language-switch button.active {
   color: var(--ink);
   background: var(--paper-3);
@@ -282,15 +274,13 @@ button {
 
 .brand-mark {
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  color: var(--ink);
-  filter: drop-shadow(0 2px 5px rgba(45, 38, 28, 0.28));
+  width: 25px;
+  height: 25px;
+  color: var(--accent);
 }
 
-.brand em {
-  color: var(--accent);
-  font-style: normal;
+.brand > span {
+  letter-spacing: 0.01em;
 }
 
 .language-switch {
@@ -908,10 +898,13 @@ h3 {
   transform: rotate(-90deg);
 }
 
+/* Fixed minimum so 8/10 does not sit wider than 0/7 down the stack. */
 .folder-tally {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
+  justify-content: center;
+  min-width: 76px;
   gap: 5px;
   padding: 5px 11px;
   color: var(--muted);
@@ -1577,6 +1570,115 @@ h3 {
   color: var(--wrong);
   font-size: 0.82rem;
   text-align: right;
+}
+
+/* Merge ceremony ---------------------------------------------------------- */
+
+.ceremony {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  background: var(--scrim);
+  backdrop-filter: blur(6px);
+  animation: fade 220ms ease both;
+}
+
+.ceremony-stage {
+  position: relative;
+  width: min(360px, 82vw);
+  height: 210px;
+}
+
+.ceremony-slip,
+.ceremony-result {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  padding: 13px 16px;
+  overflow: hidden;
+  background-color: var(--paper);
+  background-image: var(--grain);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ceremony-slip {
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  font-weight: 650;
+  animation: slipMerge 900ms var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.ceremony-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-color: var(--accent);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+  animation: resultBind 620ms var(--ease) 640ms both;
+}
+
+.ceremony-result svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.ceremony-result strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.ceremony-result span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes slipMerge {
+  0% {
+    opacity: 0;
+    transform: translateY(calc(-50% + var(--y))) rotate(var(--r)) scale(0.97);
+  }
+
+  28% {
+    opacity: 1;
+    transform: translateY(calc(-50% + var(--y))) rotate(var(--r)) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) rotate(0deg) scale(0.93);
+  }
+}
+
+@keyframes resultBind {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
 }
 
 .question-editor-list {

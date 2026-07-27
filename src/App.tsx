@@ -111,7 +111,7 @@ const COPY = {
     langLabel: "Γλώσσα",
     loading: "Φόρτωση βιβλιοθήκης...",
     appKicker: "Quiz Library",
-    title: "Τα Quiz μου",
+    title: "Just Learn It",
     noCourse: "Χωρίς μάθημα",
     general: "Γενικά",
     quizSingular: "quiz",
@@ -273,7 +273,7 @@ const COPY = {
     langLabel: "Language",
     loading: "Loading library...",
     appKicker: "Quiz Library",
-    title: "My Quizzes",
+    title: "Just Learn It",
     noCourse: "No course",
     general: "General",
     quizSingular: "quiz",
@@ -586,7 +586,7 @@ export default function App() {
     const link = document.createElement("a");
     const stamp = new Date().toISOString().slice(0, 10);
     link.href = url;
-    link.download = `quizloom-backup-${stamp}.json`;
+    link.download = `klados-backup-${stamp}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -751,21 +751,23 @@ function TopBar({
   return (
     <div className="topbar">
       <span className="brand">
-        <svg className="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
-          <rect width="24" height="24" rx="7" fill="currentColor" />
-          <g
-            stroke="var(--paper)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            fill="none"
-          >
-            <path d="M8.5 5v14M15.5 5v14" opacity="0.5" />
-            <path d="M5 9.5h14M5 14.5h14" />
-          </g>
+        {/* klados — Greek for "branch". */}
+        <svg
+          className="brand-mark"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 21V6" />
+          <path d="M12 14.5 7.2 9.7" />
+          <path d="M12 14.5 16.8 9.7" />
+          <path d="M12 9.6 8.7 6.3" />
+          <path d="M12 9.6 15.3 6.3" />
         </svg>
-        <span>
-          Quiz<em>loom</em>
-        </span>
+        <span>klados</span>
       </span>
 
       <div className="topbar-controls">
@@ -859,6 +861,12 @@ function Library({
   } | null>(null);
   const [mergeCfg, setMergeCfg] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
+  const [ceremony, setCeremony] = useState<{
+    sources: string[];
+    title: string;
+    questionCount: number;
+    finish: () => void;
+  } | null>(null);
   const [groupRename, setGroupRename] = useState<{
     type: "course" | "topic";
     course: string;
@@ -977,7 +985,9 @@ function Library({
                 key={key}
                 className={filterDone === key ? "active" : ""}
                 aria-pressed={filterDone === key}
-                onClick={() => withViewTransition(() => setFilterDone(key))}
+                /* No view transition here: cross-fading the whole page for a
+                   list filter reads as a full refresh. */
+                onClick={() => setFilterDone(key)}
               >
                 {copy.filters[key]}
               </button>
@@ -1107,12 +1117,6 @@ function Library({
                                 onToggle={() => toggleSelected(quiz.id)}
                                 onPlay={() => onPlay(quiz)}
                                 onEdit={() => setEditing(quiz)}
-                                onDelete={() =>
-                                  setConfirmDel({
-                                    ids: [quiz.id],
-                                    label: `"${quiz.title}"`,
-                                  })
-                                }
                                 onToggleDone={() => onToggleDone(quiz.id)}
                                 locale={locale}
                               />
@@ -1170,6 +1174,11 @@ function Library({
           allCourses={allCourses}
           allTopics={allTopics}
           onClose={() => setEditing(null)}
+          onDelete={() => {
+            const target = editing;
+            setEditing(null);
+            setConfirmDel({ ids: [target.id], label: `"${target.title}"` });
+          }}
           onEditQuestions={() => {
             const target = editing;
             setEditing(null);
@@ -1223,19 +1232,43 @@ function Library({
           onClose={() => setMergeCfg(false)}
           onCreate={(title, course, topic, deleteOriginals) => {
             const sources = quizzes.filter((quiz) => selected.includes(quiz.id));
-            onMerge(
-              {
-                id: uid(),
-                title: title.trim() || copy.mergedFallback,
-                course: course.trim(),
-                topic: topic.trim(),
-                createdAt: Date.now(),
-                questions: sources.flatMap((source) => source.questions),
-              },
-              deleteOriginals ? selected : [],
-            );
-            exitMerge();
+            const merged: Quiz = {
+              id: uid(),
+              title: title.trim() || copy.mergedFallback,
+              course: course.trim(),
+              topic: topic.trim(),
+              createdAt: Date.now(),
+              questions: sources.flatMap((source) => source.questions),
+            };
+            const removed = deleteOriginals ? selected : [];
+            const finish = () => {
+              onMerge(merged, removed);
+              exitMerge();
+              setCeremony(null);
+            };
+
+            setMergeCfg(false);
+            if (prefersReducedMotion()) {
+              finish();
+              return;
+            }
+            setCeremony({
+              sources: sources.map((source) => source.title),
+              title: merged.title,
+              questionCount: merged.questions.length,
+              finish,
+            });
           }}
+        />
+      )}
+
+      {ceremony && (
+        <MergeCeremony
+          sources={ceremony.sources}
+          title={ceremony.title}
+          questionCount={ceremony.questionCount}
+          copy={copy}
+          onDone={ceremony.finish}
         />
       )}
 
@@ -1321,7 +1354,6 @@ function QuizCard({
   onToggle,
   onPlay,
   onEdit,
-  onDelete,
   onToggleDone,
 }: {
   quiz: Quiz;
@@ -1333,7 +1365,6 @@ function QuizCard({
   onToggle: () => void;
   onPlay: () => void;
   onEdit: () => void;
-  onDelete: () => void;
   onToggleDone: () => void;
 }) {
   const done = Boolean(quiz.done);
@@ -1414,16 +1445,10 @@ function QuizCard({
             <Play size={13} aria-hidden="true" />
             {copy.play}
           </span>
+          {/* Delete lives inside the edit dialog — one action per card. */}
           <div className="row-actions" onClick={(event) => event.stopPropagation()}>
             <IconButton label={`${copy.edit}: ${quiz.title}`} onClick={onEdit}>
               <Edit3 size={15} aria-hidden="true" />
-            </IconButton>
-            <IconButton
-              label={`${copy.delete}: ${quiz.title}`}
-              danger
-              onClick={onDelete}
-            >
-              <Trash2 size={15} aria-hidden="true" />
             </IconButton>
           </div>
         </div>
@@ -1612,6 +1637,7 @@ function EditModal({
   onClose,
   onSave,
   onEditQuestions,
+  onDelete,
 }: {
   quiz: Quiz;
   copy: CopyText;
@@ -1620,6 +1646,7 @@ function EditModal({
   onClose: () => void;
   onSave: (patch: Partial<Quiz>) => void;
   onEditQuestions: () => void;
+  onDelete: () => void;
 }) {
   const [title, setTitle] = useState(quiz.title);
   const [course, setCourse] = useState(quiz.course || "");
@@ -1666,7 +1693,11 @@ function EditModal({
         </strong>
       </button>
 
-      <div className="modal-actions">
+      <div className="modal-actions modal-actions-split">
+        <button className="button button-danger-ghost" onClick={onDelete}>
+          <Trash2 size={16} aria-hidden="true" />
+          {copy.deleteQuiz}
+        </button>
         <button className="button button-ghost" onClick={onClose}>
           {copy.cancel}
         </button>
@@ -1686,6 +1717,62 @@ function EditModal({
         </button>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Plays once when a merge is confirmed: the source slips fan out, slide
+ * together, and are replaced by the single quiz they became.
+ */
+function MergeCeremony({
+  sources,
+  title,
+  questionCount,
+  copy,
+  onDone,
+}: {
+  sources: string[];
+  title: string;
+  questionCount: number;
+  copy: CopyText;
+  onDone: () => void;
+}) {
+  useEffect(() => {
+    const timer = window.setTimeout(onDone, 1400);
+    return () => window.clearTimeout(timer);
+  }, [onDone]);
+
+  const shown = sources.slice(0, 4);
+
+  return (
+    <div className="ceremony" role="presentation">
+      <div className="ceremony-stage">
+        {shown.map((source, i) => (
+          <div
+            className="ceremony-slip"
+            key={`${source}-${i}`}
+            style={
+              {
+                "--y": `${(i - (shown.length - 1) / 2) * 46}px`,
+                "--r": `${(i - (shown.length - 1) / 2) * 3.5}deg`,
+                "--i": i,
+              } as React.CSSProperties
+            }
+          >
+            {source}
+          </div>
+        ))}
+
+        <div className="ceremony-result">
+          <Merge size={17} aria-hidden="true" />
+          <strong>{title}</strong>
+          <span>
+            {questionCount}{" "}
+            {questionCount === 1 ? copy.questionSingular : copy.questionPlural}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
