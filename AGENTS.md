@@ -14,10 +14,19 @@ folders (courses), and each folder holds bright index cards (quizzes).
   Mono for the import textarea. All three cover Greek and Latin, so bilingual
   copy renders in the same typeface instead of falling back to a system serif.
   Do not swap in a face without Greek coverage.
-- **Palette.** Tokens live at the top of `src/styles.css`. `--tint` is a
-  per-course accent set inline from `courseTint()` in `App.tsx`; it colours the
-  folder spine, header wash, topic labels, and card hover border. A course keeps
-  its colour across sessions because the tint is hashed from the course name.
+- **Palette.** Tokens live at the top of `src/styles.css`. Every folder shares
+  one low-chroma `--tint` (fills) / `--tint-ink` (text and edges) pair; it is
+  kept deliberately neutral so it never collides with the green reviewed state
+  or the terracotta accent.
+- **Theming.** `:root[data-theme="dark"]` restates the tokens only — components
+  must never hardcode a colour. Anything paper-tinted reads from `--surface`,
+  `--surface-input`, `--folder-paper`, `--scrim`, `--on-solid`, `--primary-*`,
+  `--invert-*`, or the `--desk-*` backdrop set. If a new component needs a
+  literal colour, add a token instead.
+- **Animation fill.** Use `backwards`, not `both`. A retained final keyframe
+  keeps its `transform` applied, which both overrides hover transforms and
+  turns the element into a containing block for `position: fixed` children —
+  it has broken the quiz-card hover and the suggestion list already.
 - **Texture.** `--grain` is an inline SVG noise tile reused on every raised
   surface. The desk gradient lives on a single fixed `body::before` layer.
 - **Layout.** Topic shelves use `.card-grid`; a shelf holding exactly one quiz

@@ -11,8 +11,14 @@ Live site: https://gerasimosiord.github.io/quizloom/
 - Local browser persistence with `localStorage`
 - Course/topic grouping with rename support
 - Search, reviewed/todo filters, and collapsible course sections
-- Edit, move, delete, and merge quizzes
+- Edit, move, delete, and merge quizzes; delete a whole course at once
+- Edit imported questions in place: wording, choices, correct answer, explanation
 - Practice mode with shuffled answers, explanations, progress, and score summary
+- Retry only the questions you missed
+- Last score remembered per quiz and shown in the library
+- Keyboard shortcuts while practising: `A`–`D` or `1`–`4` to answer, `Enter` to continue
+- Light and dark themes, following your system setting until you pick one
+- JSON backup: export the whole library to a file, restore it by adding or replacing
 - Warm paper interface: courses read as tinted manila folders, quizzes as index cards
 - Downloadable `SKILL.md` prompt file for generating compatible quizzes with an LLM
 
