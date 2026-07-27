@@ -225,6 +225,13 @@ export function readBackup(raw: string): Quiz[] {
 
 export function groupQuizzes(list: Quiz[], locale: string) {
   const byCourse: Record<string, Record<string, Quiz[]>> = {};
+  const titleById = new Map(list.map((quiz) => [quiz.id, quiz.title]));
+
+  /* A missed deck sorts under its source's title rather than its own, so it
+     always lands directly beside the quiz it was cut from. Falls back to its
+     own title when the source is filtered out or gone. */
+  const sortName = (quiz: Quiz) =>
+    (quiz.missedFrom && titleById.get(quiz.missedFrom)) || quiz.title;
 
   for (const quiz of list) {
     const course = (quiz.course || "").trim() || NONE;
@@ -245,8 +252,10 @@ export function groupQuizzes(list: Quiz[], locale: string) {
     course,
     topics: sortKeys(Object.keys(byCourse[course])).map((topic) => ({
       topic,
-      items: byCourse[course][topic].sort((a, b) =>
-        a.title.localeCompare(b.title, locale),
+      items: byCourse[course][topic].sort(
+        (a, b) =>
+          sortName(a).localeCompare(sortName(b), locale) ||
+          Number(Boolean(a.missedFrom)) - Number(Boolean(b.missedFrom)),
       ),
     })),
   }));

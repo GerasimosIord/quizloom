@@ -1514,24 +1514,70 @@ h3 {
   background: var(--wrong-soft);
 }
 
-/* Marks a deck that was built from wrong answers rather than imported. */
-.missed-chip {
+/* Marks a deck built from wrong answers rather than imported. Just the symbol
+   in the meta row; the deck it came from is named on hover. */
+.origin-mark {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   color: var(--accent);
   background: var(--accent-soft);
-  border-radius: var(--r-pill);
-  font-size: 0.66rem;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  border-radius: 50%;
+  cursor: help;
 }
 
-.missed-chip svg {
+.origin-mark svg {
   margin-right: 0;
   color: inherit;
+}
+
+/* Faded rather than hidden, so screen readers still reach the label. */
+.origin-bubble {
+  position: absolute;
+  /* Below the symbol, over the card's footer row. Above it would cover the
+     deck's own title, and anything escaping the card gets clipped by the
+     folder's collapse container. */
+  top: calc(100% + 7px);
+  left: 50%;
+  z-index: 3;
+  max-width: 210px;
+  padding: 5px 9px;
+  color: var(--on-solid);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--invert-bg);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transform: translate(-50%, -3px);
+  pointer-events: none;
+  transition:
+    opacity 160ms var(--ease),
+    transform 160ms var(--ease);
+}
+
+.origin-mark:hover .origin-bubble {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* The card clips its content; lift that only while a bubble is showing. */
+.quiz-card:has(.origin-mark:hover) {
+  overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .origin-bubble {
+    transition: none;
+  }
 }
 
 /* Row that opens a deeper editor from inside a modal. */

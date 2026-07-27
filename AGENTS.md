@@ -27,6 +27,16 @@ honest:
   since got right drop out.
 - **Only offered after a full run.** A partial drill cannot know the whole
   deck's weak set, so it must never rewrite the saved one.
+- **It lives beside its source**, in the same course and topic. `groupQuizzes`
+  sorts a missed deck under its source's title rather than its own, so a
+  closer-sorting sibling cannot wedge between them, and `updateQuiz` drags the
+  deck along when the source is renamed or moved. The generated title only
+  follows while it is still the generated one; a hand-renamed deck is left be.
+- **The card marks it with a symbol, not a word** — `.origin-mark`, naming the
+  source in a bubble on hover. The bubble is faded rather than hidden so the
+  label stays in the accessibility tree, and it opens downward and stays inside
+  the card: upward covers the deck's own title, and anything escaping the card
+  is clipped by `.folder-collapse`'s overflow.
 - Saved questions are taken from the stored quiz, not the played deck, so they
   keep their authored choice order and re-shuffle on each run.
 - The toolbar's pooled drill plays every missed deck at once from a throwaway

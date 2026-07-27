@@ -259,8 +259,8 @@ const COPY = {
     saveMissed: (n: number) => `Αποθήκευση των ${n} ως σετ`,
     updateMissed: (n: number) => `Κράτα μόνο αυτά τα ${n}`,
     missedSuffix: "Λάθη",
-    missedTopic: "Λάθη",
-    missedBadge: "Λάθη",
+    missedOrigin: (title: string) => `Λάθη από «${title}»`,
+    missedOriginUnknown: "Ερωτήσεις που έχασες",
     missedSaved: "Το σετ με τα λάθη αποθηκεύτηκε",
     missedUpdated: "Το σετ με τα λάθη ενημερώθηκε",
     practiceAllMissed: (n: number) => `Όλα τα λάθη (${n})`,
@@ -426,8 +426,8 @@ const COPY = {
     saveMissed: (n: number) => `Save these ${n} as a deck`,
     updateMissed: (n: number) => `Keep only these ${n}`,
     missedSuffix: "Missed",
-    missedTopic: "Missed",
-    missedBadge: "Missed",
+    missedOrigin: (title: string) => `Missed from "${title}"`,
+    missedOriginUnknown: "Questions you got wrong",
     missedSaved: "Missed deck saved",
     missedUpdated: "Missed deck updated",
     practiceAllMissed: (n: number) => `All missed (${n})`,
@@ -563,11 +563,29 @@ export default function App() {
 
   const addQuiz = (quiz: Quiz, message: string) => commit([...quizzes, quiz], message);
 
-  const updateQuiz = (id: string, patch: Partial<Quiz>, message?: string) =>
+  const updateQuiz = (id: string, patch: Partial<Quiz>, message?: string) => {
+    const before = quizzes.find((quiz) => quiz.id === id);
+    /* Moving or renaming a quiz drags its missed deck along, so the pair never
+       drifts apart. The title only follows while the deck still carries the
+       generated name — a hand-renamed one is left alone. */
+    const generated = before ? `${before.title} — ${copy.missedSuffix}` : "";
+
     commit(
-      quizzes.map((quiz) => (quiz.id === id ? { ...quiz, ...patch } : quiz)),
+      quizzes.map((quiz) => {
+        if (quiz.id === id) return { ...quiz, ...patch };
+        if (!before || quiz.missedFrom !== id) return quiz;
+        return {
+          ...quiz,
+          course: patch.course ?? quiz.course,
+          topic: patch.topic ?? quiz.topic,
+          ...(patch.title && quiz.title === generated
+            ? { title: `${patch.title} — ${copy.missedSuffix}` }
+            : {}),
+        };
+      }),
       message,
     );
+  };
 
   const deleteQuizzes = (ids: string[], message: string) =>
     commit(
@@ -639,8 +657,10 @@ export default function App() {
         {
           id: uid(),
           title: `${source.title} — ${copy.missedSuffix}`,
+          /* Same course and topic as the source, so it lands on the same
+             shelf; groupQuizzes then sorts it directly beside it. */
           course: source.course,
-          topic: copy.missedTopic,
+          topic: source.topic,
           createdAt: Date.now(),
           missedFrom: source.id,
           questions,
@@ -976,6 +996,11 @@ function Library({
 
   const groups = useMemo(() => groupQuizzes(filtered, locale), [filtered, locale]);
 
+  const titleById = useMemo(
+    () => new Map(quizzes.map((quiz) => [quiz.id, quiz.title])),
+    [quizzes],
+  );
+
   /* Every missed deck pooled into one drill. Two decks can hold the same
      question — merged quizzes overlap — so it is deduped before playing. */
   const allMissed = useMemo(
@@ -1231,6 +1256,11 @@ function Library({
                                 index={cardIndex}
                                 quiz={quiz}
                                 copy={copy}
+                                originTitle={
+                                  quiz.missedFrom
+                                    ? titleById.get(quiz.missedFrom)
+                                    : undefined
+                                }
                                 mergeMode={mergeMode}
                                 selected={selected.includes(quiz.id)}
                                 onToggle={() => toggleSelected(quiz.id)}
@@ -1468,6 +1498,7 @@ function QuizCard({
   index,
   copy,
   locale,
+  originTitle,
   mergeMode,
   selected,
   onToggle,
@@ -1479,6 +1510,8 @@ function QuizCard({
   index: number;
   copy: CopyText;
   locale: string;
+  /** Title of the quiz a missed deck was cut from, when it still exists. */
+  originTitle?: string;
   mergeMode: boolean;
   selected: boolean;
   onToggle: () => void;
@@ -1538,10 +1571,18 @@ function QuizCard({
               {questionCount}{" "}
               {questionCount === 1 ? copy.questionSingular : copy.questionPlural}
             </span>
+            {/* Marks a deck cut from another quiz's wrong answers. The label
+                stays in the accessibility tree at rest — it is faded, not
+                hidden — so the card still announces where the deck came
+                from. */}
             {quiz.missedFrom && !mergeMode && (
-              <span className="missed-chip">
-                <Target size={11} aria-hidden="true" />
-                {copy.missedBadge}
+              <span className="origin-mark">
+                <Target size={12} aria-hidden="true" />
+                <span className="origin-bubble">
+                  {originTitle
+                    ? copy.missedOrigin(originTitle)
+                    : copy.missedOriginUnknown}
+                </span>
               </span>
             )}
             {scorePct !== null && !mergeMode && (
