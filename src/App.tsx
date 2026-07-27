@@ -1530,8 +1530,8 @@ function QuizCard({
   return (
     <article
       className={`quiz-card rise ${selected ? "is-selected" : ""} ${
-        done && !mergeMode ? "is-done" : ""
-      }`}
+        quiz.missedFrom && !mergeMode ? "is-missed" : ""
+      } ${done && !mergeMode ? "is-done" : ""}`}
       style={{ "--i": index } as React.CSSProperties}
       role="button"
       tabIndex={0}
