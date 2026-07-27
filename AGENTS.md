@@ -32,6 +32,10 @@ honest:
   closer-sorting sibling cannot wedge between them, and `updateQuiz` drags the
   deck along when the source is renamed or moved. The generated title only
   follows while it is still the generated one; a hand-renamed deck is left be.
+- **Its card reads a shade deeper** (`.is-missed`), mixed toward
+  `--folder-paper` rather than toward a hue so it darkens in both themes and
+  cannot collide with the reviewed green — which still wins, being the later
+  rule.
 - **The card marks it with a symbol, not a word** — `.origin-mark`, a bare "!"
   in a tinted disc, naming the source in a bubble on hover. The bubble is faded rather than hidden so the
   label stays in the accessibility tree, and it opens downward and stays inside

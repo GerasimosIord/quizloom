@@ -1031,6 +1031,15 @@ h3 {
   transform: translateY(-3px);
 }
 
+/* A deck cut from another quiz sits a shade deeper than an imported one, as if
+   recessed into the shelf. Mixes toward the folder rather than toward a hue,
+   so it darkens in both themes and cannot collide with the reviewed green —
+   which still wins, being the later rule. */
+.quiz-card.is-missed {
+  background-color: color-mix(in srgb, var(--folder-paper) 55%, var(--paper));
+  border-color: color-mix(in srgb, var(--tint-ink) 20%, var(--line));
+}
+
 .quiz-card.is-done {
   background-color: color-mix(in srgb, var(--correct-soft) 60%, var(--paper));
   border-color: color-mix(in srgb, var(--correct) 30%, var(--line));
