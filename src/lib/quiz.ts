@@ -13,6 +13,12 @@ export interface QuizQuestion {
   explanation: string;
 }
 
+export interface QuizScore {
+  correct: number;
+  total: number;
+  at: number;
+}
+
 export interface Quiz {
   id: string;
   title: string;
@@ -20,6 +26,8 @@ export interface Quiz {
   topic: string;
   createdAt: number;
   done?: boolean;
+  /** Result of the last full run. Partial retries do not overwrite it. */
+  lastScore?: QuizScore;
   questions: QuizQuestion[];
 }
 
@@ -83,6 +91,127 @@ export function parseQuiz(raw: string): ParsedQuiz {
   });
 
   return { title, questions };
+}
+
+export const BACKUP_APP = "quizloom";
+export const BACKUP_VERSION = 1;
+
+export function blankQuestion(): QuizQuestion {
+  return {
+    category: "",
+    question: "",
+    options: [
+      { key: "A", text: "" },
+      { key: "B", text: "" },
+      { key: "C", text: "" },
+      { key: "D", text: "" },
+    ],
+    correct: "A",
+    explanation: "",
+  };
+}
+
+export function buildBackup(quizzes: Quiz[]) {
+  return JSON.stringify(
+    {
+      app: BACKUP_APP,
+      version: BACKUP_VERSION,
+      exportedAt: Date.now(),
+      quizzes,
+    },
+    null,
+    2,
+  );
+}
+
+function cleanQuestion(raw: unknown): QuizQuestion | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+  const options = Array.isArray(value.options)
+    ? value.options
+        .map((option) => {
+          if (!option || typeof option !== "object") return null;
+          const item = option as Record<string, unknown>;
+          if (typeof item.key !== "string" || typeof item.text !== "string") {
+            return null;
+          }
+          return { key: item.key as OptionKey, text: item.text };
+        })
+        .filter((option): option is QuizOption => option !== null)
+    : [];
+
+  if (typeof value.question !== "string" || options.length < 2) return null;
+  if (typeof value.correct !== "string") return null;
+  if (!options.some((option) => option.key === value.correct)) return null;
+
+  return {
+    category: typeof value.category === "string" ? value.category : "",
+    question: value.question,
+    options,
+    correct: value.correct as OptionKey,
+    explanation: typeof value.explanation === "string" ? value.explanation : "",
+  };
+}
+
+function cleanQuiz(raw: unknown): Quiz | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+  const questions = Array.isArray(value.questions)
+    ? value.questions
+        .map(cleanQuestion)
+        .filter((question): question is QuizQuestion => question !== null)
+    : [];
+
+  if (!questions.length) return null;
+
+  const score = value.lastScore as Record<string, unknown> | undefined;
+  const lastScore =
+    score &&
+    typeof score.correct === "number" &&
+    typeof score.total === "number" &&
+    typeof score.at === "number"
+      ? { correct: score.correct, total: score.total, at: score.at }
+      : undefined;
+
+  return {
+    id: typeof value.id === "string" && value.id ? value.id : uid(),
+    title: typeof value.title === "string" && value.title.trim() ? value.title : "Quiz",
+    course: typeof value.course === "string" ? value.course : "",
+    topic: typeof value.topic === "string" ? value.topic : "",
+    createdAt: typeof value.createdAt === "number" ? value.createdAt : Date.now(),
+    done: value.done === true,
+    ...(lastScore ? { lastScore } : {}),
+    questions,
+  };
+}
+
+/**
+ * Reads a backup file. Accepts both the exported envelope and a bare
+ * `{ quizzes: [...] }` blob, so a hand-copied localStorage dump still works.
+ * Throws when nothing usable is found.
+ */
+export function readBackup(raw: string): Quiz[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("unreadable");
+  }
+
+  const source = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>).quizzes
+      : null;
+
+  if (!Array.isArray(source)) throw new Error("unreadable");
+
+  const quizzes = source
+    .map(cleanQuiz)
+    .filter((quiz): quiz is Quiz => quiz !== null);
+
+  if (!quizzes.length) throw new Error("empty");
+  return quizzes;
 }
 
 export function groupQuizzes(list: Quiz[], locale: string) {

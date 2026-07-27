@@ -9,6 +9,7 @@ import {
 import { flushSync } from "react-dom";
 import {
   AlertCircle,
+  Archive,
   ArrowLeft,
   BookOpen,
   Check,
@@ -21,32 +22,43 @@ import {
   Layers,
   ListChecks,
   Merge,
+  Moon,
   Play,
   Plus,
   RotateCcw,
   Save,
   Search,
   Shuffle,
+  Sun,
+  Target,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import {
   NONE,
   type OptionKey,
   type Quiz,
+  type QuizQuestion,
+  type QuizScore,
+  blankQuestion,
+  buildBackup,
   groupQuizzes,
   parseQuiz,
+  readBackup,
   sampleQuizText,
   shuffleQuiz,
   uid,
 } from "./lib/quiz";
 
 type Lang = "el" | "en";
-type View = "library" | "import" | "play";
+type Theme = "light" | "dark";
+type View = "library" | "import" | "play" | "questions";
 type DoneFilter = "all" | "todo" | "done";
 
 const LIB_KEY = "quizmgr:library:v2";
 const LANG_KEY = "quizmgr:language:v1";
+const THEME_KEY = "quizmgr:theme:v1";
 
 function prefersReducedMotion() {
   return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
@@ -214,6 +226,48 @@ const COPY = {
     edit: "Επεξεργασία",
     markDone: "Σήμανση ως ελεγμένο",
     markTodo: "Επαναφορά ως μη ελεγμένο",
+
+    themeLabel: "Θέμα",
+    themeLight: "Φωτεινό",
+    themeDark: "Σκοτεινό",
+
+    backup: "Αντίγραφο",
+    backupTitle: "Αντίγραφο ασφαλείας",
+    backupHint:
+      "Τα quiz αποθηκεύονται μόνο σε αυτόν τον browser. Κατέβασε ένα αρχείο για να τα κρατήσεις ασφαλή ή να τα μεταφέρεις σε άλλη συσκευή.",
+    exportFile: "Λήψη αντιγράφου",
+    exportedMsg: "Το αντίγραφο κατέβηκε",
+    importFile: "Επιλογή αρχείου",
+    importFound: (n: number) => `Βρέθηκαν ${n} quiz στο αρχείο.`,
+    importUnreadable: "Το αρχείο δεν διαβάζεται. Χρειάζεται αρχείο .json από το Quizloom.",
+    importEmpty: "Το αρχείο δεν περιέχει έγκυρα quiz.",
+    importAdd: "Προσθήκη στη βιβλιοθήκη",
+    importReplace: "Αντικατάσταση όλων",
+    importReplaceWarn: (n: number) =>
+      `Θα διαγραφούν τα ${n} τρέχοντα quiz σου.`,
+    importedMsg: (n: number) => `Προστέθηκαν ${n} quiz`,
+    replacedMsg: (n: number) => `Η βιβλιοθήκη αντικαταστάθηκε με ${n} quiz`,
+
+    practiceMissed: (n: number) =>
+      `Εξάσκηση στα ${n} που έχασες`,
+    missedDeckTitle: "Λάθος απαντήσεις",
+    lastScore: "τελευταία",
+
+    editQuestions: "Επεξεργασία ερωτήσεων",
+    questionsTitle: "Ερωτήσεις",
+    questionsSubtitle:
+      "Διόρθωσε το κείμενο, τις επιλογές, τη σωστή απάντηση ή την εξήγηση κάθε ερώτησης.",
+    questionN: (n: number) => `Ερώτηση ${n}`,
+    questionText: "Ερώτηση",
+    categoryLabel: "Κατηγορία",
+    optionsLabel: "Επιλογές (διάλεξε τη σωστή)",
+    explanationLabel: "Εξήγηση",
+    addQuestion: "Νέα ερώτηση",
+    removeQuestion: "Αφαίρεση ερώτησης",
+    questionsSaved: "Οι ερωτήσεις αποθηκεύτηκαν",
+    needOneQuestion: "Χρειάζεται τουλάχιστον μία ερώτηση με κείμενο και δύο επιλογές.",
+
+    shortcutHint: "Συντομεύσεις: A–D ή 1–4 για απάντηση, Enter για συνέχεια.",
   },
   en: {
     langLabel: "Language",
@@ -332,6 +386,46 @@ const COPY = {
     edit: "Edit",
     markDone: "Mark as reviewed",
     markTodo: "Mark as not reviewed",
+
+    themeLabel: "Theme",
+    themeLight: "Light",
+    themeDark: "Dark",
+
+    backup: "Backup",
+    backupTitle: "Backup and restore",
+    backupHint:
+      "Your quizzes live only in this browser. Download a file to keep them safe or move them to another device.",
+    exportFile: "Download backup",
+    exportedMsg: "Backup downloaded",
+    importFile: "Choose file",
+    importFound: (n: number) => `Found ${n} quizzes in the file.`,
+    importUnreadable: "That file could not be read. It needs to be a Quizloom .json backup.",
+    importEmpty: "The file contains no valid quizzes.",
+    importAdd: "Add to library",
+    importReplace: "Replace everything",
+    importReplaceWarn: (n: number) => `This deletes your current ${n} quizzes.`,
+    importedMsg: (n: number) => `Added ${n} quizzes`,
+    replacedMsg: (n: number) => `Library replaced with ${n} quizzes`,
+
+    practiceMissed: (n: number) => `Practice the ${n} you missed`,
+    missedDeckTitle: "Missed questions",
+    lastScore: "last",
+
+    editQuestions: "Edit questions",
+    questionsTitle: "Questions",
+    questionsSubtitle:
+      "Fix the wording, the choices, the correct answer, or the explanation of any question.",
+    questionN: (n: number) => `Question ${n}`,
+    questionText: "Question",
+    categoryLabel: "Category",
+    optionsLabel: "Choices (pick the correct one)",
+    explanationLabel: "Explanation",
+    addQuestion: "Add question",
+    removeQuestion: "Remove question",
+    questionsSaved: "Questions saved",
+    needOneQuestion: "At least one question needs text and two choices.",
+
+    shortcutHint: "Shortcuts: A–D or 1–4 to answer, Enter to continue.",
   },
 };
 
@@ -344,6 +438,8 @@ export default function App() {
   const [view, setView] = useState<View>("library");
   const [playing, setPlaying] = useState<Quiz | null>(null);
   const [lang, setLang] = useState<Lang>("en");
+  const [theme, setTheme] = useState<Theme>("light");
+  const [editingQuestions, setEditingQuestions] = useState<Quiz | null>(null);
   const [toast, setToast] = useState<{ text: string; key: number } | null>(null);
   const [toastLeaving, setToastLeaving] = useState(false);
   const copy = COPY[lang];
@@ -353,6 +449,13 @@ export default function App() {
     try {
       const storedLang = window.localStorage.getItem(LANG_KEY);
       if (storedLang === "el" || storedLang === "en") setLang(storedLang);
+
+      const storedTheme = window.localStorage.getItem(THEME_KEY);
+      if (storedTheme === "light" || storedTheme === "dark") {
+        setTheme(storedTheme);
+      } else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+        setTheme("dark");
+      }
 
       const storedLibrary = window.localStorage.getItem(LIB_KEY);
       const library = storedLibrary ? JSON.parse(storedLibrary) : { quizzes: [] };
@@ -373,6 +476,15 @@ export default function App() {
       setStorageOK(false);
     }
   }, [lang]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      window.localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      /* theme is cosmetic; a failure here should not flag storage */
+    }
+  }, [theme]);
 
   const flash = useCallback((message: string) => {
     setToast({ text: message, key: Date.now() });
@@ -463,6 +575,38 @@ export default function App() {
   const toggleDone = (id: string) =>
     commit(quizzes.map((quiz) => (quiz.id === id ? { ...quiz, done: !quiz.done } : quiz)));
 
+  const recordScore = (id: string, score: QuizScore) =>
+    commit(
+      quizzes.map((quiz) => (quiz.id === id ? { ...quiz, lastScore: score } : quiz)),
+    );
+
+  const exportBackup = () => {
+    const blob = new Blob([buildBackup(quizzes)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `quizloom-backup-${stamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    flash(copy.exportedMsg);
+  };
+
+  const restoreBackup = (incoming: Quiz[], mode: "add" | "replace") => {
+    if (mode === "replace") {
+      commit(incoming, copy.replacedMsg(incoming.length));
+      return;
+    }
+    /* Re-key anything that collides so an add never overwrites. */
+    const taken = new Set(quizzes.map((quiz) => quiz.id));
+    const added = incoming.map((quiz) =>
+      taken.has(quiz.id) ? { ...quiz, id: uid() } : quiz,
+    );
+    commit([...quizzes, ...added], copy.importedMsg(added.length));
+  };
+
   const loadSample = () => {
     const parsed = parseQuiz(sampleQuizText);
     addQuiz(
@@ -488,13 +632,39 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <TopBar lang={lang} copy={copy} onChangeLang={setLang} />
+      <TopBar
+        lang={lang}
+        theme={theme}
+        copy={copy}
+        onChangeLang={setLang}
+        onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+      />
 
-      {view === "play" && playing ? (
+      {view === "questions" && editingQuestions ? (
+        <QuestionsView
+          key={editingQuestions.id}
+          quiz={editingQuestions}
+          copy={copy}
+          onCancel={() =>
+            withViewTransition(() => {
+              setEditingQuestions(null);
+              setView("library");
+            })
+          }
+          onSave={(questions) =>
+            withViewTransition(() => {
+              updateQuiz(editingQuestions.id, { questions }, copy.questionsSaved);
+              setEditingQuestions(null);
+              setView("library");
+            })
+          }
+        />
+      ) : view === "play" && playing ? (
         <Player
           key={playing.id}
           quiz={playing}
           copy={copy}
+          onRecordScore={recordScore}
           onExit={() =>
             withViewTransition(() => {
               setPlaying(null);
@@ -540,6 +710,14 @@ export default function App() {
           onRenameCourse={renameCourse}
           onRenameTopic={renameTopic}
           onToggleDone={toggleDone}
+          onExport={exportBackup}
+          onRestore={restoreBackup}
+          onEditQuestions={(quiz) =>
+            withViewTransition(() => {
+              setEditingQuestions(quiz);
+              setView("questions");
+            })
+          }
         />
       )}
 
@@ -559,12 +737,16 @@ export default function App() {
 
 function TopBar({
   lang,
+  theme,
   copy,
   onChangeLang,
+  onToggleTheme,
 }: {
   lang: Lang;
+  theme: Theme;
   copy: CopyText;
   onChangeLang: (lang: Lang) => void;
+  onToggleTheme: () => void;
 }) {
   return (
     <div className="topbar">
@@ -586,22 +768,40 @@ function TopBar({
         </span>
       </span>
 
-      <div className="language-switch" role="group" aria-label={copy.langLabel}>
-        <Languages size={14} aria-hidden="true" />
+      <div className="topbar-controls">
         <button
-          className={lang === "el" ? "active" : ""}
-          aria-pressed={lang === "el"}
-          onClick={() => onChangeLang("el")}
+          className="theme-toggle"
+          type="button"
+          title={theme === "dark" ? copy.themeLight : copy.themeDark}
+          aria-label={`${copy.themeLabel}: ${
+            theme === "dark" ? copy.themeDark : copy.themeLight
+          }`}
+          onClick={onToggleTheme}
         >
-          EL
+          {theme === "dark" ? (
+            <Sun size={16} aria-hidden="true" />
+          ) : (
+            <Moon size={16} aria-hidden="true" />
+          )}
         </button>
-        <button
-          className={lang === "en" ? "active" : ""}
-          aria-pressed={lang === "en"}
-          onClick={() => onChangeLang("en")}
-        >
-          EN
-        </button>
+
+        <div className="language-switch" role="group" aria-label={copy.langLabel}>
+          <Languages size={14} aria-hidden="true" />
+          <button
+            className={lang === "el" ? "active" : ""}
+            aria-pressed={lang === "el"}
+            onClick={() => onChangeLang("el")}
+          >
+            EL
+          </button>
+          <button
+            className={lang === "en" ? "active" : ""}
+            aria-pressed={lang === "en"}
+            onClick={() => onChangeLang("en")}
+          >
+            EN
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -623,6 +823,9 @@ function Library({
   onRenameCourse,
   onRenameTopic,
   onToggleDone,
+  onExport,
+  onRestore,
+  onEditQuestions,
 }: {
   quizzes: Quiz[];
   allCourses: string[];
@@ -639,6 +842,9 @@ function Library({
   onRenameCourse: (oldName: string, newName: string) => void;
   onRenameTopic: (courseName: string, oldTopic: string, newTopic: string) => void;
   onToggleDone: (id: string) => void;
+  onExport: () => void;
+  onRestore: (quizzes: Quiz[], mode: "add" | "replace") => void;
+  onEditQuestions: (quiz: Quiz) => void;
 }) {
   const [search, setSearch] = useState("");
   const [filterDone, setFilterDone] = useState<DoneFilter>("all");
@@ -652,6 +858,7 @@ function Library({
     isCourse?: boolean;
   } | null>(null);
   const [mergeCfg, setMergeCfg] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
   const [groupRename, setGroupRename] = useState<{
     type: "course" | "topic";
     course: string;
@@ -752,6 +959,14 @@ function Library({
             placeholder={copy.search}
           />
         </label>
+        <button
+          className="button button-ghost button-square"
+          title={copy.backupTitle}
+          aria-label={copy.backupTitle}
+          onClick={() => setBackupOpen(true)}
+        >
+          <Archive size={17} aria-hidden="true" />
+        </button>
       </div>
 
       {quizzes.length > 0 && (
@@ -899,6 +1114,7 @@ function Library({
                                   })
                                 }
                                 onToggleDone={() => onToggleDone(quiz.id)}
+                                locale={locale}
                               />
                             ))}
                           </div>
@@ -934,6 +1150,19 @@ function Library({
         </div>
       )}
 
+      {backupOpen && (
+        <BackupModal
+          copy={copy}
+          quizCount={quizzes.length}
+          onClose={() => setBackupOpen(false)}
+          onExport={onExport}
+          onRestore={(incoming, mode) => {
+            onRestore(incoming, mode);
+            setBackupOpen(false);
+          }}
+        />
+      )}
+
       {editing && (
         <EditModal
           quiz={editing}
@@ -941,6 +1170,11 @@ function Library({
           allCourses={allCourses}
           allTopics={allTopics}
           onClose={() => setEditing(null)}
+          onEditQuestions={() => {
+            const target = editing;
+            setEditing(null);
+            onEditQuestions(target);
+          }}
           onSave={(patch) => {
             onUpdate(editing.id, patch, copy.saved);
             setEditing(null);
@@ -1081,6 +1315,7 @@ function QuizCard({
   quiz,
   index,
   copy,
+  locale,
   mergeMode,
   selected,
   onToggle,
@@ -1092,6 +1327,7 @@ function QuizCard({
   quiz: Quiz;
   index: number;
   copy: CopyText;
+  locale: string;
   mergeMode: boolean;
   selected: boolean;
   onToggle: () => void;
@@ -1103,6 +1339,10 @@ function QuizCard({
   const done = Boolean(quiz.done);
   const questionCount = quiz.questions.length;
   const handleCardClick = mergeMode ? onToggle : onPlay;
+  const score = quiz.lastScore;
+  const scorePct = score?.total
+    ? Math.round((score.correct / score.total) * 100)
+    : null;
 
   return (
     <article
@@ -1148,6 +1388,16 @@ function QuizCard({
               {questionCount}{" "}
               {questionCount === 1 ? copy.questionSingular : copy.questionPlural}
             </span>
+            {scorePct !== null && !mergeMode && (
+              <span
+                className={`score-chip ${
+                  scorePct >= 70 ? "is-good" : scorePct >= 40 ? "is-mid" : "is-low"
+                }`}
+                title={new Date(score!.at).toLocaleDateString(locale)}
+              >
+                {copy.lastScore} {scorePct}%
+              </span>
+            )}
             {done && !mergeMode && (
               <span className="done-chip">
                 <Check size={12} aria-hidden="true" />
@@ -1361,6 +1611,7 @@ function EditModal({
   allTopics,
   onClose,
   onSave,
+  onEditQuestions,
 }: {
   quiz: Quiz;
   copy: CopyText;
@@ -1368,6 +1619,7 @@ function EditModal({
   allTopics: string[];
   onClose: () => void;
   onSave: (patch: Partial<Quiz>) => void;
+  onEditQuestions: () => void;
 }) {
   const [title, setTitle] = useState(quiz.title);
   const [course, setCourse] = useState(quiz.course || "");
@@ -1401,11 +1653,19 @@ function EditModal({
           />
         </Field>
       </div>
-      <p className="soft-note">
-        {quiz.questions.length}{" "}
-        {quiz.questions.length === 1 ? copy.questionSingular : copy.questionPlural}.{" "}
-        {copy.editMeta}
-      </p>
+      <p className="soft-note">{copy.editMeta}</p>
+
+      <button className="link-row" type="button" onClick={onEditQuestions}>
+        <span>
+          <ListChecks size={16} aria-hidden="true" />
+          {copy.editQuestions}
+        </span>
+        <strong>
+          {quiz.questions.length}{" "}
+          {quiz.questions.length === 1 ? copy.questionSingular : copy.questionPlural}
+        </strong>
+      </button>
+
       <div className="modal-actions">
         <button className="button button-ghost" onClick={onClose}>
           {copy.cancel}
@@ -1426,6 +1686,283 @@ function EditModal({
         </button>
       </div>
     </Modal>
+  );
+}
+
+function BackupModal({
+  copy,
+  quizCount,
+  onClose,
+  onExport,
+  onRestore,
+}: {
+  copy: CopyText;
+  quizCount: number;
+  onClose: () => void;
+  onExport: () => void;
+  onRestore: (quizzes: Quiz[], mode: "add" | "replace") => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [staged, setStaged] = useState<Quiz[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const readFile = async (file: File) => {
+    setError(null);
+    setStaged(null);
+    try {
+      setStaged(readBackup(await file.text()));
+    } catch (failure) {
+      setError(
+        (failure as Error).message === "empty"
+          ? copy.importEmpty
+          : copy.importUnreadable,
+      );
+    }
+  };
+
+  return (
+    <Modal title={copy.backupTitle} copy={copy} onClose={onClose}>
+      <p className="modal-copy">{copy.backupHint}</p>
+
+      <div className="backup-actions">
+        <button
+          className="button button-primary"
+          onClick={onExport}
+          disabled={quizCount === 0}
+        >
+          <Download size={16} aria-hidden="true" />
+          {copy.exportFile}
+        </button>
+        <button
+          className="button button-ghost"
+          onClick={() => fileRef.current?.click()}
+        >
+          <Upload size={16} aria-hidden="true" />
+          {copy.importFile}
+        </button>
+        <input
+          ref={fileRef}
+          className="visually-hidden"
+          type="file"
+          accept="application/json,.json"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void readFile(file);
+            event.target.value = "";
+          }}
+        />
+      </div>
+
+      {error && (
+        <div className="parse-status invalid">
+          <AlertCircle size={16} aria-hidden="true" />
+          {error}
+        </div>
+      )}
+
+      {staged && (
+        <div className="restore-panel">
+          <div className="parse-status valid">
+            <CheckCircle2 size={16} aria-hidden="true" />
+            {copy.importFound(staged.length)}
+          </div>
+          <div className="modal-actions">
+            <button
+              className="button button-ghost"
+              onClick={() => onRestore(staged, "add")}
+            >
+              {copy.importAdd}
+            </button>
+            <button
+              className="button button-danger"
+              title={copy.importReplaceWarn(quizCount)}
+              onClick={() => onRestore(staged, "replace")}
+            >
+              {copy.importReplace}
+            </button>
+          </div>
+          {quizCount > 0 && (
+            <p className="soft-note restore-warn">
+              {copy.importReplaceWarn(quizCount)}
+            </p>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/** Full-page editor for a quiz's questions. */
+function QuestionsView({
+  quiz,
+  copy,
+  onCancel,
+  onSave,
+}: {
+  quiz: Quiz;
+  copy: CopyText;
+  onCancel: () => void;
+  onSave: (questions: QuizQuestion[]) => void;
+}) {
+  const [draft, setDraft] = useState<QuizQuestion[]>(() =>
+    quiz.questions.map((question) => ({
+      ...question,
+      options: question.options.map((option) => ({ ...option })),
+    })),
+  );
+
+  const patch = (index: number, next: Partial<QuizQuestion>) =>
+    setDraft((prev) =>
+      prev.map((question, i) => (i === index ? { ...question, ...next } : question)),
+    );
+
+  const setOption = (index: number, key: OptionKey, text: string) =>
+    setDraft((prev) =>
+      prev.map((question, i) =>
+        i === index
+          ? {
+              ...question,
+              options: question.options.map((option) =>
+                option.key === key ? { ...option, text } : option,
+              ),
+            }
+          : question,
+      ),
+    );
+
+  /* A question is only saveable if the answer marked correct still has text. */
+  const usable = draft.filter((question) => {
+    const filled = question.options.filter((option) => option.text.trim());
+    return (
+      question.question.trim() &&
+      filled.length >= 2 &&
+      filled.some((option) => option.key === question.correct)
+    );
+  });
+  const valid = usable.length > 0 && usable.length === draft.length;
+
+  return (
+    <main className="page">
+      <button className="button button-ghost top-return" onClick={onCancel}>
+        <ArrowLeft size={16} aria-hidden="true" />
+        {copy.back}
+      </button>
+
+      <header className="page-header">
+        <div className="eyebrow">
+          <span className="status-dot" />
+          {quiz.title}
+        </div>
+        <h1>{copy.questionsTitle}</h1>
+        <p>{copy.questionsSubtitle}</p>
+      </header>
+
+      <div className="question-editor-list">
+        {draft.map((question, index) => (
+          <section className="question-editor" key={index}>
+            <div className="question-editor-head">
+              <span className="question-editor-index">{copy.questionN(index + 1)}</span>
+              <input
+                className="input question-editor-category"
+                value={question.category}
+                placeholder={copy.categoryLabel}
+                onChange={(event) => patch(index, { category: event.target.value })}
+                aria-label={copy.categoryLabel}
+              />
+              <IconButton
+                label={`${copy.removeQuestion} ${index + 1}`}
+                danger
+                onClick={() =>
+                  setDraft((prev) => prev.filter((_, i) => i !== index))
+                }
+              >
+                <Trash2 size={15} aria-hidden="true" />
+              </IconButton>
+            </div>
+
+            <Field label={copy.questionText}>
+              <textarea
+                className="input question-editor-text"
+                value={question.question}
+                onChange={(event) => patch(index, { question: event.target.value })}
+              />
+            </Field>
+
+            <span className="editor-legend">{copy.optionsLabel}</span>
+            <div className="option-editor-list">
+              {question.options.map((option) => (
+                <label
+                  className={`option-editor ${
+                    question.correct === option.key ? "is-correct" : ""
+                  }`}
+                  key={option.key}
+                >
+                  <input
+                    type="radio"
+                    name={`correct-${index}`}
+                    checked={question.correct === option.key}
+                    onChange={() => patch(index, { correct: option.key })}
+                    aria-label={`${copy.correct}: ${option.key}`}
+                  />
+                  <span className="option-editor-key">{option.key}</span>
+                  <input
+                    className="input"
+                    value={option.text}
+                    onChange={(event) =>
+                      setOption(index, option.key, event.target.value)
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+
+            <Field label={copy.explanationLabel}>
+              <textarea
+                className="input question-editor-text"
+                value={question.explanation}
+                onChange={(event) => patch(index, { explanation: event.target.value })}
+              />
+            </Field>
+          </section>
+        ))}
+      </div>
+
+      <button
+        className="button button-ghost add-question"
+        onClick={() => setDraft((prev) => [...prev, blankQuestion()])}
+      >
+        <Plus size={16} aria-hidden="true" />
+        {copy.addQuestion}
+      </button>
+
+      {!valid && draft.length > 0 && (
+        <div className="parse-status invalid">
+          <AlertCircle size={16} aria-hidden="true" />
+          {copy.needOneQuestion}
+        </div>
+      )}
+
+      <div className="form-actions">
+        <button
+          className="button button-primary"
+          disabled={!valid}
+          onClick={() =>
+            onSave(
+              draft.map((question) => ({
+                ...question,
+                options: question.options.filter((option) => option.text.trim()),
+              })),
+            )
+          }
+        >
+          <Save size={16} aria-hidden="true" />
+          {copy.save}
+        </button>
+        <button className="button button-ghost" onClick={onCancel}>
+          {copy.cancel}
+        </button>
+      </div>
+    </main>
   );
 }
 
@@ -1525,16 +2062,21 @@ function Player({
   quiz,
   copy,
   onExit,
+  onRecordScore,
 }: {
   quiz: Quiz;
   copy: CopyText;
   onExit: () => void;
+  onRecordScore: (id: string, score: QuizScore) => void;
 }) {
   const [deck, setDeck] = useState<Quiz | null>(null);
   const [idx, setIdx] = useState(0);
   const [picks, setPicks] = useState<Array<OptionKey | null>>([]);
   const [done, setDone] = useState(false);
   const [anim, setAnim] = useState(0);
+  /* False while drilling a subset, so a partial run never overwrites the
+     recorded score for the whole quiz. */
+  const [isFullRun, setIsFullRun] = useState(true);
 
   const questions = deck?.questions || [];
   const total = questions.length;
@@ -1549,14 +2091,27 @@ function Player({
   const pct = total ? Math.round((score / total) * 100) : 0;
   const shownPct = useCountUp(done ? pct : 0);
 
-  const startShuffled = () => {
-    const shuffled = shuffleQuiz(quiz);
+  const start = (source: Quiz, fullRun: boolean) => {
+    const shuffled = shuffleQuiz(source);
     setDeck(shuffled);
     setPicks(new Array(shuffled.questions.length).fill(null));
     setIdx(0);
     setDone(false);
+    setIsFullRun(fullRun);
     setAnim((value) => value + 1);
   };
+
+  const startShuffled = () => start(quiz, true);
+
+  const missed = done
+    ? questions.filter((question, i) => picks[i] !== question.correct)
+    : [];
+
+  const practiceMissed = () =>
+    start(
+      { ...quiz, title: copy.missedDeckTitle, questions: missed },
+      false,
+    );
 
   const choose = (key: OptionKey) => {
     if (picked !== null) return;
@@ -1574,6 +2129,51 @@ function Player({
     }
   };
 
+  /* Answer with A–D or 1–4, advance with Enter / arrows. Ignored while a
+     text field has focus so it never fights with typing elsewhere. */
+  useEffect(() => {
+    if (!deck || done) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+
+      const current = questions[idx];
+      if (!current) return;
+      const answered = picks[idx] != null;
+
+      if (!answered) {
+        const letter = event.key.toUpperCase();
+        const byLetter = current.options.find((option) => option.key === letter);
+        const numeric = Number.parseInt(event.key, 10);
+        const byNumber =
+          Number.isFinite(numeric) && numeric >= 1
+            ? current.options[numeric - 1]
+            : undefined;
+        const target2 = byLetter || byNumber;
+        if (target2) {
+          event.preventDefault();
+          choose(target2.key);
+          return;
+        }
+      }
+
+      if (event.key === "Enter" || event.key === "ArrowRight") {
+        if (answered) {
+          event.preventDefault();
+          goNext();
+        }
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goPrev();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   const goNext = () => {
     if (idx + 1 < total) {
       setIdx(idx + 1);
@@ -1583,6 +2183,9 @@ function Player({
 
     if (allAnswered) {
       setDone(true);
+      if (isFullRun) {
+        onRecordScore(quiz.id, { correct: score, total, at: Date.now() });
+      }
       return;
     }
 
@@ -1625,6 +2228,8 @@ function Player({
           <Shuffle size={18} aria-hidden="true" />
           {copy.shuffleStart}
         </button>
+
+        <p className="shortcut-hint">{copy.shortcutHint}</p>
       </main>
     );
   }
@@ -1681,7 +2286,18 @@ function Player({
         </div>
 
         <div className="form-actions">
-          <button className="button button-primary" onClick={startShuffled}>
+          {missed.length > 0 && (
+            <button className="button button-primary" onClick={practiceMissed}>
+              <Target size={16} aria-hidden="true" />
+              {copy.practiceMissed(missed.length)}
+            </button>
+          )}
+          <button
+            className={
+              missed.length > 0 ? "button button-ghost" : "button button-primary"
+            }
+            onClick={startShuffled}
+          >
             <RotateCcw size={16} aria-hidden="true" />
             {copy.retryShuffle}
           </button>
