@@ -1514,6 +1514,26 @@ h3 {
   background: var(--wrong-soft);
 }
 
+/* Marks a deck that was built from wrong answers rather than imported. */
+.missed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--r-pill);
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.missed-chip svg {
+  margin-right: 0;
+  color: inherit;
+}
+
 /* Row that opens a deeper editor from inside a modal. */
 .link-row {
   display: flex;

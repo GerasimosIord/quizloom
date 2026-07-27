@@ -28,6 +28,12 @@ export interface Quiz {
   done?: boolean;
   /** Result of the last full run. Partial retries do not overwrite it. */
   lastScore?: QuizScore;
+  /**
+   * Set on decks built from the questions a run got wrong. Holds the id of the
+   * quiz they came from, so re-saving updates the same deck instead of piling
+   * up a new one after every attempt.
+   */
+  missedFrom?: string;
   questions: QuizQuestion[];
 }
 
@@ -181,6 +187,9 @@ function cleanQuiz(raw: unknown): Quiz | null {
     createdAt: typeof value.createdAt === "number" ? value.createdAt : Date.now(),
     done: value.done === true,
     ...(lastScore ? { lastScore } : {}),
+    ...(typeof value.missedFrom === "string" && value.missedFrom
+      ? { missedFrom: value.missedFrom }
+      : {}),
     questions,
   };
 }
@@ -243,21 +252,49 @@ export function groupQuizzes(list: Quiz[], locale: string) {
   }));
 }
 
-export function shuffleQuiz(quiz: Quiz): Quiz {
+/** Fisher-Yates on a copy; the input array is left alone. */
+export function shuffled<T>(list: readonly T[]): T[] {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/** Normalized question text, used to tell two copies of a question apart. */
+export function questionKey(question: QuizQuestion) {
+  return question.question.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function dedupeQuestions(list: QuizQuestion[]): QuizQuestion[] {
+  const seen = new Set<string>();
+  return list.filter((question) => {
+    const key = questionKey(question);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Shuffles the answer choices of every question and, by default, the order the
+ * questions themselves come up. Replaying a deck should never be a memory test
+ * for positions.
+ */
+export function shuffleQuiz(quiz: Quiz, shuffleOrder = true): Quiz {
   const letters: OptionKey[] = ["A", "B", "C", "D", "E", "F"];
+  const source = shuffleOrder ? shuffled(quiz.questions) : quiz.questions;
 
   return {
     ...quiz,
-    questions: quiz.questions.map((question) => {
-      const arr = question.options.map((option) => ({
-        text: option.text,
-        correct: option.key === question.correct,
-      }));
-
-      for (let i = arr.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
+    questions: source.map((question) => {
+      const arr = shuffled(
+        question.options.map((option) => ({
+          text: option.text,
+          correct: option.key === question.correct,
+        })),
+      );
 
       const options = arr.map((option, i) => ({ key: letters[i], text: option.text }));
       const correctIndex = arr.findIndex((option) => option.correct);

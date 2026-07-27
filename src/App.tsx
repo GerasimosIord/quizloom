@@ -18,6 +18,7 @@ import {
   Download,
   Edit3,
   FileText,
+  FolderPlus,
   Languages,
   Layers,
   ListChecks,
@@ -43,8 +44,10 @@ import {
   type QuizScore,
   blankQuestion,
   buildBackup,
+  dedupeQuestions,
   groupQuizzes,
   parseQuiz,
+  questionKey,
   readBackup,
   sampleQuizText,
   shuffleQuiz,
@@ -193,8 +196,8 @@ const COPY = {
     library: "Βιβλιοθήκη",
     reviewReady: "Έτοιμο για επανάληψη",
     shuffleNotice:
-      "Οι επιλογές κάθε ερώτησης ανακατεύονται τυχαία, ώστε η σωστή απάντηση να μη βρίσκεται σε προβλέψιμη θέση.",
-    shuffleStart: "Ανακάτεψε επιλογές και ξεκίνα",
+      "Η σειρά των ερωτήσεων και οι επιλογές τους ανακατεύονται τυχαία, ώστε τίποτα να μη βρίσκεται σε προβλέψιμη θέση.",
+    shuffleStart: "Ανακάτεψε και ξεκίνα",
     previous: "Προηγούμενη",
     nextQuestion: "Επόμενη",
     seeResults: "Δες αποτελέσματα",
@@ -252,6 +255,16 @@ const COPY = {
       `Εξάσκηση στα ${n} που έχασες`,
     missedDeckTitle: "Λάθος απαντήσεις",
     lastScore: "τελευταία",
+
+    saveMissed: (n: number) => `Αποθήκευση των ${n} ως σετ`,
+    updateMissed: (n: number) => `Κράτα μόνο αυτά τα ${n}`,
+    missedSuffix: "Λάθη",
+    missedTopic: "Λάθη",
+    missedBadge: "Λάθη",
+    missedSaved: "Το σετ με τα λάθη αποθηκεύτηκε",
+    missedUpdated: "Το σετ με τα λάθη ενημερώθηκε",
+    practiceAllMissed: (n: number) => `Όλα τα λάθη (${n})`,
+    allMissedTitle: "Όλα τα λάθη σου",
 
     editQuestions: "Επεξεργασία ερωτήσεων",
     questionsTitle: "Ερωτήσεις",
@@ -354,8 +367,8 @@ const COPY = {
     library: "Library",
     reviewReady: "Ready to review",
     shuffleNotice:
-      "Each question's answer choices are shuffled so the correct answer does not sit in a predictable position.",
-    shuffleStart: "Shuffle choices and start",
+      "Both the order of the questions and their answer choices are shuffled, so nothing sits in a position you can memorize.",
+    shuffleStart: "Shuffle and start",
     previous: "Previous",
     nextQuestion: "Next",
     seeResults: "See results",
@@ -409,6 +422,16 @@ const COPY = {
 
     practiceMissed: (n: number) => `Practice the ${n} you missed`,
     missedDeckTitle: "Missed questions",
+
+    saveMissed: (n: number) => `Save these ${n} as a deck`,
+    updateMissed: (n: number) => `Keep only these ${n}`,
+    missedSuffix: "Missed",
+    missedTopic: "Missed",
+    missedBadge: "Missed",
+    missedSaved: "Missed deck saved",
+    missedUpdated: "Missed deck updated",
+    practiceAllMissed: (n: number) => `All missed (${n})`,
+    allMissedTitle: "Everything you missed",
     lastScore: "last",
 
     editQuestions: "Edit questions",
@@ -575,10 +598,57 @@ export default function App() {
   const toggleDone = (id: string) =>
     commit(quizzes.map((quiz) => (quiz.id === id ? { ...quiz, done: !quiz.done } : quiz)));
 
-  const recordScore = (id: string, score: QuizScore) =>
+  const inLibrary = (id: string) => quizzes.some((quiz) => quiz.id === id);
+
+  const recordScore = (id: string, score: QuizScore) => {
+    /* The cross-quiz drill is not a library deck; it has no score to keep. */
+    if (!inLibrary(id)) return;
     commit(
       quizzes.map((quiz) => (quiz.id === id ? { ...quiz, lastScore: score } : quiz)),
     );
+  };
+
+  /**
+   * Turns the questions a run got wrong into a deck that lives in the library.
+   * One deck per source quiz: saving again after another attempt replaces its
+   * contents, so the deck always mirrors what is still weak. Saving from a
+   * missed deck prunes that deck in place.
+   */
+  const saveMissed = (source: Quiz, questions: QuizQuestion[]) => {
+    if (!questions.length) return;
+
+    const target = source.missedFrom
+      ? source
+      : quizzes.find((quiz) => quiz.missedFrom === source.id);
+
+    if (target) {
+      commit(
+        quizzes.map((quiz) =>
+          quiz.id === target.id
+            ? { ...quiz, questions, done: false, lastScore: undefined }
+            : quiz,
+        ),
+        copy.missedUpdated,
+      );
+      return;
+    }
+
+    commit(
+      [
+        ...quizzes,
+        {
+          id: uid(),
+          title: `${source.title} — ${copy.missedSuffix}`,
+          course: source.course,
+          topic: copy.missedTopic,
+          createdAt: Date.now(),
+          missedFrom: source.id,
+          questions,
+        },
+      ],
+      copy.missedSaved,
+    );
+  };
 
   const exportBackup = () => {
     const blob = new Blob([buildBackup(quizzes)], { type: "application/json" });
@@ -599,10 +669,20 @@ export default function App() {
       commit(incoming, copy.replacedMsg(incoming.length));
       return;
     }
-    /* Re-key anything that collides so an add never overwrites. */
+    /* Re-key anything that collides so an add never overwrites, then repoint
+       `missedFrom` at the new ids so restored missed decks stay linked. */
     const taken = new Set(quizzes.map((quiz) => quiz.id));
-    const added = incoming.map((quiz) =>
-      taken.has(quiz.id) ? { ...quiz, id: uid() } : quiz,
+    const remap = new Map<string, string>();
+    const rekeyed = incoming.map((quiz) => {
+      if (!taken.has(quiz.id)) return quiz;
+      const id = uid();
+      remap.set(quiz.id, id);
+      return { ...quiz, id };
+    });
+    const added = rekeyed.map((quiz) =>
+      quiz.missedFrom && remap.has(quiz.missedFrom)
+        ? { ...quiz, missedFrom: remap.get(quiz.missedFrom) }
+        : quiz,
     );
     commit([...quizzes, ...added], copy.importedMsg(added.length));
   };
@@ -665,6 +745,11 @@ export default function App() {
           quiz={playing}
           copy={copy}
           onRecordScore={recordScore}
+          onSaveMissed={
+            inLibrary(playing.id)
+              ? (questions) => saveMissed(playing, questions)
+              : undefined
+          }
           onExit={() =>
             withViewTransition(() => {
               setPlaying(null);
@@ -890,6 +975,19 @@ function Library({
   }, [filterDone, quizzes, search]);
 
   const groups = useMemo(() => groupQuizzes(filtered, locale), [filtered, locale]);
+
+  /* Every missed deck pooled into one drill. Two decks can hold the same
+     question — merged quizzes overlap — so it is deduped before playing. */
+  const allMissed = useMemo(
+    () =>
+      dedupeQuestions(
+        quizzes
+          .filter((quiz) => quiz.missedFrom)
+          .flatMap((quiz) => quiz.questions),
+      ),
+    [quizzes],
+  );
+
   const totalQuestions = quizzes.reduce((n, quiz) => n + quiz.questions.length, 0);
   const doneCount = quizzes.filter((quiz) => quiz.done).length;
   const donePct = quizzes.length ? Math.round((doneCount / quizzes.length) * 100) : 0;
@@ -960,6 +1058,26 @@ function Library({
           <Merge size={17} aria-hidden="true" />
           {mergeMode ? copy.cancelMerge : copy.merge}
         </button>
+        {allMissed.length > 0 && !mergeMode && (
+          <button
+            className="button button-ghost"
+            onClick={() =>
+              onPlay({
+                /* Throwaway id: this deck is never written to the library, so
+                   it records no score and offers no save. */
+                id: uid(),
+                title: copy.allMissedTitle,
+                course: "",
+                topic: "",
+                createdAt: Date.now(),
+                questions: allMissed,
+              })
+            }
+          >
+            <Target size={17} aria-hidden="true" />
+            {copy.practiceAllMissed(allMissed.length)}
+          </button>
+        )}
         <label className="search-field">
           <Search size={17} aria-hidden="true" />
           <input
@@ -1420,6 +1538,12 @@ function QuizCard({
               {questionCount}{" "}
               {questionCount === 1 ? copy.questionSingular : copy.questionPlural}
             </span>
+            {quiz.missedFrom && !mergeMode && (
+              <span className="missed-chip">
+                <Target size={11} aria-hidden="true" />
+                {copy.missedBadge}
+              </span>
+            )}
             {scorePct !== null && !mergeMode && (
               <span
                 className={`score-chip ${
@@ -2151,11 +2275,14 @@ function Player({
   copy,
   onExit,
   onRecordScore,
+  onSaveMissed,
 }: {
   quiz: Quiz;
   copy: CopyText;
   onExit: () => void;
   onRecordScore: (id: string, score: QuizScore) => void;
+  /** Absent for throwaway decks (the cross-quiz drill), which have nothing to save into. */
+  onSaveMissed?: (questions: QuizQuestion[]) => void;
 }) {
   const [deck, setDeck] = useState<Quiz | null>(null);
   const [idx, setIdx] = useState(0);
@@ -2165,6 +2292,7 @@ function Player({
   /* False while drilling a subset, so a partial run never overwrites the
      recorded score for the whole quiz. */
   const [isFullRun, setIsFullRun] = useState(true);
+  const [saved, setSaved] = useState(false);
 
   const questions = deck?.questions || [];
   const total = questions.length;
@@ -2180,12 +2308,13 @@ function Player({
   const shownPct = useCountUp(done ? pct : 0);
 
   const start = (source: Quiz, fullRun: boolean) => {
-    const shuffled = shuffleQuiz(source);
-    setDeck(shuffled);
-    setPicks(new Array(shuffled.questions.length).fill(null));
+    const next = shuffleQuiz(source);
+    setDeck(next);
+    setPicks(new Array(next.questions.length).fill(null));
     setIdx(0);
     setDone(false);
     setIsFullRun(fullRun);
+    setSaved(false);
     setAnim((value) => value + 1);
   };
 
@@ -2200,6 +2329,13 @@ function Player({
       { ...quiz, title: copy.missedDeckTitle, questions: missed },
       false,
     );
+
+  /* The played deck carries shuffled choices. Save the questions as they are
+     stored on the quiz instead, so the saved deck re-shuffles on every run. */
+  const missedOriginals = () => {
+    const byText = new Map(quiz.questions.map((item) => [questionKey(item), item]));
+    return missed.map((item) => byText.get(questionKey(item)) || item);
+  };
 
   const choose = (key: OptionKey) => {
     if (picked !== null) return;
@@ -2378,6 +2514,27 @@ function Player({
             <button className="button button-primary" onClick={practiceMissed}>
               <Target size={16} aria-hidden="true" />
               {copy.practiceMissed(missed.length)}
+            </button>
+          )}
+          {/* Only after a full run: a partial drill cannot say what the whole
+              deck's weak set is, so it must not rewrite the saved one. */}
+          {missed.length > 0 && onSaveMissed && isFullRun && (
+            <button
+              className="button button-ghost"
+              disabled={saved}
+              onClick={() => {
+                onSaveMissed(missedOriginals());
+                setSaved(true);
+              }}
+            >
+              {saved ? (
+                <Check size={16} aria-hidden="true" />
+              ) : (
+                <FolderPlus size={16} aria-hidden="true" />
+              )}
+              {quiz.missedFrom
+                ? copy.updateMissed(missed.length)
+                : copy.saveMissed(missed.length)}
             </button>
           )}
           <button

@@ -1,14 +1,40 @@
 # Design Notes
 
-The app is called **Klados** (Greek for "branch"); the mark is a single leaf
-with a midrib — a tree silhouette was tried first and does not survive 25px
-(bare branches read as a rune, a solid crown reads as a lollipop). The repository, the Pages URL, and the localStorage keys are
-still `quizloom` — renaming those would break existing users' saved libraries.
+The app is called **Klados** (Greek for "branch"); the mark is a bare branching
+tree, drawn so its ink is centred in the viewBox rather than in the nominal
+24×24 box — otherwise it hangs low beside the wordmark. The repository, the
+Pages URL, and the localStorage keys are still `quizloom` — renaming those
+would break existing users' saved libraries.
 
 - Keep the app as a focused quiz tool on first load; avoid landing-page or marketing layouts.
 - Preserve the warm paper palette, serif headings, rounded controls, and quiet motion from the original TSX.
 - The text import grammar is a product contract. Do not change it without adding backward compatibility.
 - Greek and English UI copy should stay feature-equivalent. Imported quiz content is user-authored and should not be translated automatically.
+
+## Missed decks
+
+Every run shuffles both the question order and each question's answer choices,
+so replaying a deck never becomes a memory test for positions.
+
+A run's wrong answers can be saved as a real deck in the library. That deck
+carries `missedFrom`, the id of the quiz it came from, which keeps the model
+honest:
+
+- **One missed deck per source quiz.** Saving again after another attempt
+  replaces its contents, so the deck always mirrors what is still weak instead
+  of accumulating a new "Missed (3)" after every attempt.
+- **Saving from a missed deck prunes it in place** — the questions you have
+  since got right drop out.
+- **Only offered after a full run.** A partial drill cannot know the whole
+  deck's weak set, so it must never rewrite the saved one.
+- Saved questions are taken from the stored quiz, not the played deck, so they
+  keep their authored choice order and re-shuffle on each run.
+- The toolbar's pooled drill plays every missed deck at once from a throwaway
+  quiz that is never written to the library — hence no recorded score and no
+  save button. `inLibrary()` in `App` is what distinguishes it.
+
+Backup restore re-keys colliding ids, so it also has to repoint `missedFrom` at
+the new ids or restored missed decks come back orphaned.
 
 ## Visual system
 
