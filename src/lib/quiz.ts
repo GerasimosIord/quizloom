@@ -287,31 +287,80 @@ export function dedupeQuestions(list: QuizQuestion[]): QuizQuestion[] {
 }
 
 /**
+ * Deals the slot the correct answer lands in, question by question, so a run
+ * comes out balanced: every slot is used equally often across the deck and the
+ * same slot never repeats on consecutive questions.
+ *
+ * Shuffling each question independently is uniform in the long run but clumpy
+ * in any one run — five "A"s in a row is routine, and roughly one deck in
+ * eighty has a single letter for half its questions. That reads as bias and
+ * invites guessing by pattern. Dealing from a shuffled block of every slot
+ * fixes both while keeping each individual question unpredictable.
+ *
+ * Questions with different option counts draw from separate blocks so a
+ * true/false question cannot unbalance the four-option ones.
+ */
+class SlotDealer {
+  private blocks = new Map<number, number[]>();
+  private last = -1;
+
+  next(size: number): number {
+    let block = this.blocks.get(size) ?? [];
+
+    /* The no-repeat rule only applies from three options up. With two, never
+       repeating means strictly alternating, which is the most predictable
+       pattern of all — true/false questions get balance only. */
+    const spread = size > 2;
+
+    /* Refill when empty — or when the only slot left would repeat the
+       previous one, in which case it is pushed under a fresh block and drawn
+       later, so the block still balances. */
+    if (block.length === 0 || (spread && block.length === 1 && block[0] === this.last)) {
+      block = [...block, ...shuffled(Array.from({ length: size }, (_, i) => i))];
+    }
+
+    const top = block.length - 1;
+    if (spread && block.length >= 2 && block[top] === this.last) {
+      [block[top], block[top - 1]] = [block[top - 1], block[top]];
+    }
+
+    const slot = block.pop() as number;
+    this.blocks.set(size, block);
+    this.last = slot;
+    return slot;
+  }
+}
+
+/**
  * Shuffles the answer choices of every question and, by default, the order the
- * questions themselves come up. Replaying a deck should never be a memory test
- * for positions.
+ * questions themselves come up. Correct answers are dealt to balanced slots
+ * (see SlotDealer); the distractors fill the rest at random.
  */
 export function shuffleQuiz(quiz: Quiz, shuffleOrder = true): Quiz {
   const letters: OptionKey[] = ["A", "B", "C", "D", "E", "F"];
   const source = shuffleOrder ? shuffled(quiz.questions) : quiz.questions;
+  const dealer = new SlotDealer();
 
   return {
     ...quiz,
     questions: source.map((question) => {
-      const arr = shuffled(
-        question.options.map((option) => ({
-          text: option.text,
-          correct: option.key === question.correct,
-        })),
+      const answer =
+        question.options.find((option) => option.key === question.correct) ||
+        question.options[0];
+      const distractors = shuffled(
+        question.options.filter((option) => option !== answer),
       );
-
-      const options = arr.map((option, i) => ({ key: letters[i], text: option.text }));
-      const correctIndex = arr.findIndex((option) => option.correct);
+      const slot = dealer.next(question.options.length);
+      const arranged = [
+        ...distractors.slice(0, slot),
+        answer,
+        ...distractors.slice(slot),
+      ];
 
       return {
         ...question,
-        options,
-        correct: letters[correctIndex < 0 ? 0 : correctIndex],
+        options: arranged.map((option, i) => ({ key: letters[i], text: option.text })),
+        correct: letters[slot],
       };
     }),
   };

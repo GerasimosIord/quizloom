@@ -11,10 +11,25 @@ would break existing users' saved libraries.
 - The text import grammar is a product contract. Do not change it without adding backward compatibility.
 - Greek and English UI copy should stay feature-equivalent. Imported quiz content is user-authored and should not be translated automatically.
 
-## Missed decks
+## Shuffling
 
-Every run shuffles both the question order and each question's answer choices,
-so replaying a deck never becomes a memory test for positions.
+- **The first full pass keeps the authored question order.** A quiz is imported
+  in a teaching order; the first time through is for learning the material,
+  and only then for drilling it. Once a run has been completed in full (a
+  `lastScore` exists) every later run shuffles the order. Retries from the
+  result screen, missed-question drills, missed decks and the pooled drill
+  always shuffle — they are drills by nature. Quitting midway records nothing,
+  so the next visit is still an ordered first pass.
+- **Answer choices are dealt, not shuffled independently.** Per-question
+  shuffling is uniform in the long run but clumpy in any one run — five "A"s
+  in a row is routine and about one deck in eighty has a single letter for
+  half its questions, which reads as bias. `SlotDealer` in `src/lib/quiz.ts`
+  deals the correct answer's slot from a shuffled block of every slot, so a
+  run is balanced and the same slot never repeats on consecutive questions
+  (from three options up; two-option questions would otherwise strictly
+  alternate). Each question stays unpredictable on its own.
+
+## Missed decks
 
 A run's wrong answers can be saved as a real deck in the library. That deck
 carries `missedFrom`, the id of the quiz it came from, which keeps the model

@@ -22,6 +22,7 @@ import {
   Languages,
   Layers,
   ListChecks,
+  ListOrdered,
   Merge,
   Moon,
   Play,
@@ -198,6 +199,9 @@ const COPY = {
     shuffleNotice:
       "Η σειρά των ερωτήσεων και οι επιλογές τους ανακατεύονται τυχαία, ώστε τίποτα να μη βρίσκεται σε προβλέψιμη θέση.",
     shuffleStart: "Ανακάτεψε και ξεκίνα",
+    firstRunNotice:
+      "Πρώτη φορά σε αυτό το quiz: οι ερωτήσεις έρχονται με τη σειρά που τις έγραψες, για να μάθεις πρώτα την ύλη. Οι επιλογές ανακατεύονται. Από την επόμενη πλήρη επανάληψη ανακατεύεται και η σειρά.",
+    firstRunStart: "Ξεκίνα",
     previous: "Προηγούμενη",
     nextQuestion: "Επόμενη",
     seeResults: "Δες αποτελέσματα",
@@ -369,6 +373,9 @@ const COPY = {
     shuffleNotice:
       "Both the order of the questions and their answer choices are shuffled, so nothing sits in a position you can memorize.",
     shuffleStart: "Shuffle and start",
+    firstRunNotice:
+      "First time through: the questions come in the order you wrote them, so you learn the material before you drill it. Answer choices are still shuffled. From your next full run on, the order shuffles too.",
+    firstRunStart: "Start",
     previous: "Previous",
     nextQuestion: "Next",
     seeResults: "See results",
@@ -769,6 +776,11 @@ export default function App() {
             inLibrary(playing.id)
               ? (questions) => saveMissed(playing, questions)
               : undefined
+          }
+          /* A recorded score means a full pass happened. Missed decks and the
+             pooled drill are drills by nature and always shuffle. */
+          keepOrder={
+            inLibrary(playing.id) && !playing.lastScore && !playing.missedFrom
           }
           onExit={() =>
             withViewTransition(() => {
@@ -2326,6 +2338,7 @@ function Player({
   onExit,
   onRecordScore,
   onSaveMissed,
+  keepOrder,
 }: {
   quiz: Quiz;
   copy: CopyText;
@@ -2333,6 +2346,12 @@ function Player({
   onRecordScore: (id: string, score: QuizScore) => void;
   /** Absent for throwaway decks (the cross-quiz drill), which have nothing to save into. */
   onSaveMissed?: (questions: QuizQuestion[]) => void;
+  /**
+   * True until the quiz has been reviewed in full once. The first pass keeps
+   * the authored question order so the material is learned before it is
+   * drilled; retries and missed-question drills always shuffle.
+   */
+  keepOrder: boolean;
 }) {
   const [deck, setDeck] = useState<Quiz | null>(null);
   const [idx, setIdx] = useState(0);
@@ -2357,8 +2376,8 @@ function Player({
   const pct = total ? Math.round((score / total) * 100) : 0;
   const shownPct = useCountUp(done ? pct : 0);
 
-  const start = (source: Quiz, fullRun: boolean) => {
-    const next = shuffleQuiz(source);
+  const start = (source: Quiz, fullRun: boolean, shuffleOrder: boolean) => {
+    const next = shuffleQuiz(source, shuffleOrder);
     setDeck(next);
     setPicks(new Array(next.questions.length).fill(null));
     setIdx(0);
@@ -2368,7 +2387,8 @@ function Player({
     setAnim((value) => value + 1);
   };
 
-  const startShuffled = () => start(quiz, true);
+  const begin = () => start(quiz, true, !keepOrder);
+  const startShuffled = () => start(quiz, true, true);
 
   const missed = done
     ? questions.filter((question, i) => picks[i] !== question.correct)
@@ -2378,6 +2398,7 @@ function Player({
     start(
       { ...quiz, title: copy.missedDeckTitle, questions: missed },
       false,
+      true,
     );
 
   /* The played deck carries shuffled choices. Save the questions as they are
@@ -2494,13 +2515,21 @@ function Player({
         </div>
 
         <div className="callout">
-          <Shuffle size={19} aria-hidden="true" />
-          <p>{copy.shuffleNotice}</p>
+          {keepOrder ? (
+            <ListOrdered size={19} aria-hidden="true" />
+          ) : (
+            <Shuffle size={19} aria-hidden="true" />
+          )}
+          <p>{keepOrder ? copy.firstRunNotice : copy.shuffleNotice}</p>
         </div>
 
-        <button className="button button-primary button-large" onClick={startShuffled}>
-          <Shuffle size={18} aria-hidden="true" />
-          {copy.shuffleStart}
+        <button className="button button-primary button-large" onClick={begin}>
+          {keepOrder ? (
+            <Play size={18} aria-hidden="true" />
+          ) : (
+            <Shuffle size={18} aria-hidden="true" />
+          )}
+          {keepOrder ? copy.firstRunStart : copy.shuffleStart}
         </button>
 
         <p className="shortcut-hint">{copy.shortcutHint}</p>
