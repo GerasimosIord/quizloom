@@ -20,14 +20,16 @@ would break existing users' saved libraries.
   result screen, missed-question drills, missed decks and the pooled drill
   always shuffle — they are drills by nature. Quitting midway records nothing,
   so the next visit is still an ordered first pass.
-- **Answer choices are dealt, not shuffled independently.** Per-question
-  shuffling is uniform in the long run but clumpy in any one run — five "A"s
-  in a row is routine and about one deck in eighty has a single letter for
-  half its questions, which reads as bias. `SlotDealer` in `src/lib/quiz.ts`
-  deals the correct answer's slot from a shuffled block of every slot, so a
-  run is balanced and the same slot never repeats on consecutive questions
-  (from three options up; two-option questions would otherwise strictly
-  alternate). Each question stays unpredictable on its own.
+- **Answer choices are shuffled independently per question, and must stay
+  that way.** Uniform shuffling is clumpy in any one run — five "A"s in a row
+  is routine — and it has been reported as bias (measured: exactly 25% per
+  slot). Do not "fix" this by balancing slots across the run or forbidding
+  repeats. Any scheme that makes a run look fairer than chance does so by
+  making the next slot depend on the previous ones, and that dependence is
+  information a learner can use: a no-repeat rule alone lifts a blind guess
+  from 25% to 33%, and a dealt block makes the last slot in each block
+  certain. Independent uniform is the only distribution where the past says
+  nothing about the next question. Clumps are the price of that.
 
 ## Missed decks
 
