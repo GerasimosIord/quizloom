@@ -288,8 +288,16 @@ export function dedupeQuestions(list: QuizQuestion[]): QuizQuestion[] {
 
 /**
  * Shuffles the answer choices of every question and, by default, the order the
- * questions themselves come up. Replaying a deck should never be a memory test
- * for positions.
+ * questions themselves come up.
+ *
+ * Each question's choices are shuffled independently and uniformly, and that
+ * is deliberate. Uniform is clumpy in any one run — five "A"s in a row is
+ * routine — and it has been reported as bias (measured: exactly 25% per slot).
+ * Do not "fix" that by balancing slots across the run or forbidding repeats.
+ * Any scheme that makes a run look fairer than chance does so by making the
+ * next slot depend on the previous ones, and that dependence is information a
+ * learner can use: a no-repeat rule alone lifts a blind guess from 25% to 33%.
+ * Independence is the only distribution where the past says nothing.
  */
 export function shuffleQuiz(quiz: Quiz, shuffleOrder = true): Quiz {
   const letters: OptionKey[] = ["A", "B", "C", "D", "E", "F"];
@@ -304,14 +312,12 @@ export function shuffleQuiz(quiz: Quiz, shuffleOrder = true): Quiz {
           correct: option.key === question.correct,
         })),
       );
-
-      const options = arr.map((option, i) => ({ key: letters[i], text: option.text }));
-      const correctIndex = arr.findIndex((option) => option.correct);
+      const correctIndex = Math.max(0, arr.findIndex((option) => option.correct));
 
       return {
         ...question,
-        options,
-        correct: letters[correctIndex < 0 ? 0 : correctIndex],
+        options: arr.map((option, i) => ({ key: letters[i], text: option.text })),
+        correct: letters[correctIndex],
       };
     }),
   };
